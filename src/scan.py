@@ -15,6 +15,7 @@ import string
 #from fuzzywuzzy import fuzz, process
 from src.citations import citedby_count
 from src.load import ImportEJPReport
+from src.progress import progress
 
 
 def a_preprint(xml):
@@ -215,9 +216,9 @@ class Retriever:
         #the database
         self.db=db
         #the table where submissions are stored
-        self.submissions=submissions
+        self.submissions = submissions
         #the ID that allows to select the submissions belonging to the current analysis
-        self.analysisID=analysisID
+        self.analysisID = analysisID
         self.max_date = max_date
         self.min_date = min_date
         self.pmc = EuropePMCSearch(self.min_date, self.max_date, include_preprint=False)
@@ -260,27 +261,29 @@ class Retriever:
             time.sleep(0.1) # hundred milliseconds delay to make sure not to saturate the webservice
             return result
 
-    def scan_from_db(self):
+    # def scan_from_db(self):
 
-        #if for some reason the analysis was interrupted, it continues only with the rows that were not yet processed
-        unprocessed_rows = self.db(
-            (self.submissions.analysisID == self.analysisID) & 
-            (self.submissions.processed == 'no') #&
-            #(self.submissions.Decision in ['accept', 'reject post-review', 'reject pre-review'])
-        ).select()
-        n = 0
-        for row in unprocessed_rows:
-            match = self.retrieve(row)
-            if match:
-                self.db.retrieved.insert(**match)
-                n += 1
-            self.submissions[row.id] = dict(processed='yes')
-            self.db.commit()
-        return n
+    #     #if for some reason the analysis was interrupted, it continues only with the rows that were not yet processed
+    #     unprocessed_rows = self.db(
+    #         (self.submissions.analysisID == self.analysisID) & 
+    #         (self.submissions.processed == 'no') #&
+    #         #(self.submissions.Decision in ['accept', 'reject post-review', 'reject pre-review'])
+    #     ).select()
+    #     n = 0
+    #     for row in unprocessed_rows:
+    #         match = self.retrieve(row)
+    #         if match:
+    #             self.db.retrieved.insert(**match)
+    #             n += 1
+    #         self.submissions[row.id] = dict(processed='yes')
+    #         self.db.commit()
+    #     return n
     
     def scan_from_file(self):
         results = []
-        for row in self.submissions:
+        N = len(self.submissions)
+        for i, row in enumerate(self.submissions):
+            progress(i, N, f"{i+1} of {N}            ")
             match = self.retrieve(row)
             if match:
                 results.append(match)
