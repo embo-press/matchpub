@@ -10,3 +10,28 @@ Components:
 - analyze the distribution of citations of the retrieved papers.
 - visualize the results.
 
+
+Create, activate and install environment:
+
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+
+Scan EuropPMC by title authors or with a list of submissions:
+
+
+    python -m src.scan --help
+
+
+Obtain citation data from scopus for given article with PMID:
+
+    python -m src.citations --help
+
+
+Example:
+ 
+    python -m src.scan -f data/msb_test_100.xls
+    python -m src.scan "Mammoth genomes hold recipe for Arctic elephants"
+    python -m src.scan "deep learning" "theis"
+    python -m src.citations 30971806
+
