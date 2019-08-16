@@ -16,6 +16,7 @@ import string
 from src.citations import citedby_count
 from src.load import ImportEJPReport
 from src.progress import progress
+from src.utils import timer
 
 
 def a_preprint(xml):
@@ -63,6 +64,7 @@ class EuropePMCSearch:
         articleList = self.search_PMC(query)
         return articleList
 
+    @timer
     def search_PMC(self, query):
         articleList = []
         params = {
@@ -176,6 +178,7 @@ def cleanup_title(title):
     # title = unidecode(title) # better?
     return title
                      
+@timer
 def best_match_by_title(articles, submitted_title, submitting_authors, threshold=39, pubmed_vs_submitted=3):
     if articles:
         titles = [cleanup_title(a.title) for a in articles]
@@ -191,6 +194,7 @@ def best_match_by_title(articles, submitted_title, submitting_authors, threshold
                     return best_matching_article
     return False
 
+@timer
 def best_match_by_author(articles, submitted_title, submitting_authors, threshold=60):
     if articles: 
         best_match = articles[0] # pmc returns results sorted by relevance
