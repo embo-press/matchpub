@@ -1,4 +1,8 @@
 nltk
+spacy
 xlrd
 requests
 unidecode
+lxml
+numpy
+pandas
