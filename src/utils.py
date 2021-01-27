@@ -1,18 +1,23 @@
-from time import time
+import string
+import re
+import html
+import unicodedata
 
 
-def timer(f):
-    '''
-    A decorator to print the execution time of a method.
-    Usage:
-        @timer
-        def some_function_to_profile(x, y, z):
-    '''
-    def t(*args, **kwargs):
-        start_time = time()
-        output = f(*args, **kwargs)
-        end_time = time()
-        delta_t = end_time - start_time
-        print("\nExec time for '{}': {:.3f}s".format(f.__name__, delta_t))
-        return output
-    return t
+def normalize(s: str) -> str:
+    # strip white space
+    s = s.strip()
+    # lower case
+    s = s.lower()
+    # remove html entities
+    s = html.unescape(s)
+    # remove punctuation
+    s = re.sub(f"[{string.punctuation}]", " ", s)  # Note: this removes hyphens as well
+    # remove accents, non breaking spaces, en-dash, em-dash, minus, special characters, 
+    s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('utf-8', 'ignore')
+    return s
+
+
+def binarize(v, bin_number, bin_size):
+    bins = [[i * bin_size, (i + 1) * bin_size] for i in range(0, bin_number)]
+    return bins, [len([e for e in v if e >= bin[0] and e < bin[1]]) for bin in bins]
