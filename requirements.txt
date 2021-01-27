@@ -6,3 +6,4 @@ unidecode
 lxml
 numpy
 pandas
+datefinder
