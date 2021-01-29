@@ -57,7 +57,7 @@ class EJPReport:
             "report_name", "editors", "time_window", "article_types", "creation_date"
         ],
         header_signature: List[str] = [
-            r"manu", r"manu", r"ed", r".*editor", r"reviewer|referee",
+            r"manu", r"manu", r"ed", r".*editor|colleague", r"reviewer|referee",
             r"sub", r".*decision", r".*decision", r".*status", r".*title",
             r"auth", r".*decision"
         ],
@@ -105,7 +105,7 @@ class EJPReport:
             first = fragments.group(1)
             second = fragments.group(2)
         except Exception:
-            raise ValueError("Could not find the required 'between <date> and <date>' statement in '{text}'")
+            raise ValueError(f"Could not find the required 'between <date> and <date>' statement in '{text}'")
         try:
             start, _ = parser.parse(first, fuzzy_with_tokens=True)
         except Exception:
@@ -136,7 +136,7 @@ class EJPReport:
         for i, row in sheet.iterrows():
             logger.debug(f"scanning row {row.to_list()}")
             if i > max_rows:
-                raise ValueError(f"Could not find the begining of the table with headers {self.header_map.keys()}")
+                raise ValueError(f"Could not find the begining of the table with headers {self.header_signature}")
             putative_header = row.to_list()
             if len(putative_header) == len(self.header_signature) and all([isinstance(e, str) for e in putative_header]):
                 if all([re.match(expected, putative, re.IGNORECASE) for expected, putative in zip(self.header_signature, putative_header)]):
