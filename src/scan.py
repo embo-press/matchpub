@@ -59,7 +59,7 @@ class Scanner:
                 results.append(Result(submission, match, method))
             else:
                 not_found.append(submission)
-        logger.info(f"found {len(results)} / {N} results search by title first")
+        logger.info(f"found {len(results)} / {N} results.")
         self.citations(results)
         self.save(results, not_found)
 
