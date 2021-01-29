@@ -1,9 +1,11 @@
 nltk
 spacy
-xlrd
 requests
 unidecode
 lxml
 numpy
 pandas
-datefinder
+xlrd
+openpyxl
+tqdm
+beautifulsoup4

@@ -1,0 +1,20 @@
+version: '2.3'
+
+services:
+  matchpub:
+    build:
+      context: .
+      dockerfile: 'Dockerfile'
+      args:
+        - user_id=${USER_ID}
+        - group_id=${GROUP_ID}
+    image: matchpub
+    env_file:
+    - ./.env
+    volumes:
+    - ./src:/app/src
+    - ./data:/data
+    - ./results:/results
+    - ./log:/log
+    working_dir: /app
+    entrypoint: ["/bin/bash"]
