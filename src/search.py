@@ -2,9 +2,42 @@
 from lxml.etree import fromstring, Element, ParseError
 from typing import List
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 from .utils import process_authors
 from . import logger
+
+
+def requests_retry_session(
+    retries=4,
+    backoff_factor=0.3,
+    status_forcelist=(500, 502, 504),
+    session=None,
+):
+    """Creates a resilient session that will retry several times when a query fails.
+    from  https://www.peterbe.com/plog/best-practice-with-retries-with-requests
+
+    Usage:
+        session_retry = self.requests_retry_session()
+        session_retry.headers.update({
+            "Accept": "application/json",
+            "From": "thomas.lemberger@embo.org"
+        })
+        response = session_retry.post(url, data=params, timeout=30)
+    """
+    session = session or requests.Session()
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
 
 
 class PMCArticle:
@@ -33,11 +66,17 @@ class PMCArticle:
 class PMCService:
 
     REST_URL = 'https://www.ebi.ac.uk/europepmc/webservices/rest/searchPOST'
+    HEADERS = {
+        "From": "thomas.lemberger@embo.org",
+        "Content-type": "application/x-www-form-urlencoded"
+    }
 
     def __init__(self, min_date: int = 1970, max_date: int = 3000, include_preprint: bool = False):
         self.start = str(min_date)
         self.end = str(max_date)
         self.include_preprint = include_preprint
+        self.retry_request = requests_retry_session()
+        self.retry_request.headers.update(self.HEADERS)
 
     def search_by_author(self, author_list: List[List[str]]) -> List[PMCArticle]:
         if author_list:
@@ -65,7 +104,7 @@ class PMCService:
         params = {"query": query, "resultType": "core", "pageSize": "5"}
         logger.debug(f"search_PMC with {params}")
         PMCArticle_list = []
-        response = requests.post(self.REST_URL, data=params)
+        response = self.retry_request.post(self.REST_URL, data=params, headers=self.HEADERS)
         if response.status_code == 200:
             try:
                 xml = fromstring(response.content)
