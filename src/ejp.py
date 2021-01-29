@@ -33,6 +33,7 @@ class EJPArticle:
         stripped_full_names = [au.strip() for au in full_names]  # ejp has a bug which duplicates names with an added space
         unique_names = list(set(stripped_full_names))
         full_names_clean = [re.sub(r"-corr$", "", au.strip()) for au in unique_names]
+        full_names_clean = list(filter(None, full_names_clean))
         last_names = [au.split()[-1] for au in full_names_clean]
         return last_names
 
