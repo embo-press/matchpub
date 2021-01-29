@@ -17,4 +17,4 @@ services:
     - ./results:/results
     - ./log:/log
     working_dir: /app
-    entrypoint: ["/bin/bash"]
+    command: ["/bin/bash"]
