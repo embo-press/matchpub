@@ -1,5 +1,4 @@
 
-from collections import UserDict, OrderedDict
 from tqdm import tqdm
 import pandas as pd
 import logging
@@ -8,37 +7,12 @@ from typing import List, Tuple
 from datetime import datetime
 from argparse import ArgumentParser
 
-from .ejp import EJPReport, EJPArticle
-from .search import PMCService, PMCArticle
-from .match import best_match_by_author, best_match_by_title
+from .models import Submission, Article, Result, ResultDict
+from .search import PMCService
+from .ejp import EJPReport
+from .match import match_by_author, match_by_title
 from .scopus import citedby_count
 from . import logger
-
-
-class Result(UserDict):
-
-    def __init__(self, query: EJPArticle, match: PMCArticle, method: str):
-        # use an OrderedDict so that the order of the keys can be used to order the columns of the result table
-        self.data = OrderedDict([
-            ('manuscript_nm', query.manuscript_nm),
-            ('editor', query.editor),
-            ('submitted_title', query.title),
-            ('retrieved_title', match.title),
-            ('decision', query.decision),
-            ('journal_name', match.journal_name),
-            ('citations', None),
-            ('submitted_author_list', query.author_list),
-            ('retrieved_author_list', match.author_list),
-            ('pmid', match.pmid),
-            ('doi', match.doi),
-            ('year', match.year),
-            ('month', match.month),
-            ('retrieved_abstract', match.abstract),
-            ('found_by', method),
-        ])
-
-    def keys(self):
-        return self.data.keys()
 
 
 class Scanner:
@@ -49,50 +23,70 @@ class Scanner:
         self.dest_path = dest_path
 
     def run(self):
-        results = []
-        not_found = []
         N = len(self.ejp_report.articles)
         logger.info(f"scanning {N} submissions {self.ejp_report.metadata['time_window']}.")
-        for submission in tqdm(self.ejp_report.articles):
-            match, method = self.search(submission)
-            if match is not None:
-                results.append(Result(submission, match, method))
+        found, not_found = self.retrieve(self.ejp_report.articles)
+        self.add_citations(found)
+        self.export(found, not_found)
+
+    def retrieve(self, submissions: List[Submission]) -> Tuple[List[Result], List[Result]]:
+        found = []
+        not_found = []
+        for submission in tqdm(submissions):
+            result, success = self.search(submission)
+            if success:
+                found.append(result)
             else:
-                not_found.append(submission)
-        logger.info(f"found {len(results)} / {N} results.")
-        self.citations(results)
-        self.save(results, not_found)
+                not_found.append(result)
+        logger.info(f"found {len(found)} / {len(submissions)} results.")
+        return found, not_found
 
-    def search(self, article: EJPArticle) -> Tuple[PMCArticle, PMCArticle]:
-        title = article.title
-        authors = article.expanded_author_list
-        match = best_match_by_title(self.engine.search_by_author(authors), title, authors)
-        method = 'by_title_first'
-        if match is None:
-            match = best_match_by_author(self.engine.search_by_title(title), title, authors)
-            method = 'by_author_first'
-        return match, method
+    def search(self, submission: Submission) -> Result:
+        title = submission.title
+        authors = submission.expanded_author_list
+        logger.debug(f"Looking for {submission.title} by {submission.author_list}.")
+        search_res = self.engine.search_by_author(authors)
+        match = None
+        if search_res:
+            match, success = match_by_title(search_res, title)
+            match.strategy = 'search_by_author_match_by_title'
+        else:
+            success = False
+        if not success:
+            search_res = self.engine.search_by_title(title)
+            if search_res:
+                match, success = match_by_author(search_res, authors)
+                match.strategy = 'search_by_title_match_by_author'
+            else:
+                success = False
+        return Result(submission, match), success
 
-    def citations(self, results: List[Result]):
+    def add_citations(self, results: List[Result]):
         logger.info(f"fetching {len(results)} scopus citations.")
         for r in tqdm(results):
-            r['citations'] = citedby_count(r['pmid'])
+            r.article.citations = citedby_count(r.article.pmid)
 
-    def save(self, results: Result, not_found: List[EJPArticle]):
+    def export(self, found: List[Result], not_found: List[Result]):
+        found = [ResultDict(r) for r in found]
+        not_found = [ResultDict(r) for r in not_found]
+
         timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         dest_path = Path(self.dest_path)
         neg_path = dest_path.parent / f"{dest_path.stem}-not-found-{timestamp}.xlsx"
         dest_path = dest_path.parent / f"{dest_path.stem}-{timestamp}.xlsx"
-        df = pd.DataFrame.from_dict(results)
+
+        df = pd.DataFrame(found)
+        cols = found[0].cols
         df = df.sort_values(by='citations', ascending=False)
-        cols = list(results[0].keys())  # the name of the columns in the desired order
         with pd.ExcelWriter(dest_path) as writer:
             df[cols].to_excel(writer)
         logger.info(f"results saved to {dest_path}.")
+
         neg = pd.DataFrame(not_found)
+        cols = not_found[0].cols
         with pd.ExcelWriter(neg_path) as writer:
-            neg[['manuscript_nm', 'editor', 'title', 'decision', 'author_list']].to_excel(writer)
-        logger.info(f"articles not found saved to {neg_path}.")
+            neg[cols].to_excel(writer)
+        logger.info(f"submissions not found saved to {neg_path}.")
 
 
 def self_test():

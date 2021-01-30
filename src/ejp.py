@@ -3,44 +3,9 @@ import pandas as pd
 from dateutil import parser
 from typing import List, Dict
 from collections import UserDict
-from dataclasses import dataclass, field
 
-from .utils import process_authors
+from .models import Submission
 from . import logger
-
-
-@dataclass
-class EJPArticle:
-
-    manuscript_nm: str = field(default='')
-    editor: str = field(default='')
-    title: str = field(default='')
-    decision: str = field(default='')
-    author_list: List[str] = field(default_factory=List)
-    expanded_author_list: List[List[str]] = field(default_factory=List)
-
-    def __init__(self, row: pd.Series):
-        self.manuscript_nm: str = row['manuscript_nm']
-        self.editor: str = row['editor']
-        self.title: str = row['title']
-        self.decision: str = row['decision']
-        self.author_list: List[str] = self.split_author_list(row['authors'])
-        self.expanded_author_list = process_authors(self.author_list)
-
-    @staticmethod
-    def split_author_list(content: str) -> List[str]:
-        full_names = content.split(",")
-        stripped_full_names = [au.strip() for au in full_names]  # ejp has a bug which duplicates names with an added space
-        unique_names = list(set(stripped_full_names))
-        full_names_clean = [re.sub(r"-corr$", "", au.strip()) for au in unique_names]
-        full_names_clean = list(filter(None, full_names_clean))
-        last_names = [au.split()[-1] for au in full_names_clean]
-        return last_names
-
-    def __str__(self):
-        authors = ", ".join(self.author_list)
-        s = f'{self.manuscript_nm}: {authors}. "{self.title}" ({self.decision} by {self.editor})'
-        return s
 
 
 class Metadata(UserDict):
@@ -53,7 +18,7 @@ class EJPReport:
 
     def __init__(
         self,
-        filepath: str, 
+        filepath: str,
         metadata_keys: List[str] = [
             "report_name", "editors", "time_window", "article_types", "creation_date"
         ],
@@ -75,7 +40,7 @@ class EJPReport:
         self.actual_header = []  # the actual header found in the file
         self.feature_index = feature_index  # the index of the features that need to be extracted
         self.data: pd.DataFrame = None  # the table with the list of manuscripts
-        self.articles: List[EJPArticle] = []  # the list of articles to retrieve
+        self.articles: List[Submission] = []  # the list of articles to retrieve
         self._read_excel(filepath)
 
     def _read_excel(self, filepath):
@@ -129,7 +94,7 @@ class EJPReport:
         self.data = reduced_data
 
     def _load_articles(self):
-        self.articles = [EJPArticle(row) for i, row in self.data.iterrows()]
+        self.articles = [Submission(row=row) for i, row in self.data.iterrows()]
 
     def _guess_start(self, sheet: pd.DataFrame, max_rows: int = 100) -> int:
         start = None

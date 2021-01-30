@@ -33,27 +33,53 @@ def normalize(s: str, do_not_remove: List[str] = []) -> str:
 
 
 def process_authors(authors: List[str]) -> List[List[str]]:
+    """The list of author last names is processed to remove special chacaters and deal with composed names and names with particles.
+    Composed names are expanded into a list of alternatives.
+
+    Args:
+        authors (List[str]): the list of author last names.
+
+    Returns:
+        (List[List[str]]): a list of possible alternatives for each cleaned up last name.
+    """
     authors = [normalize(au, do_not_remove=['-', "'"]) for au in authors]  # tremove punctuation exluding hyphens
-    authors = [re.sub(r"^(van der |vander |van den |vanden |van |von |de |de la |del |della |dell')", r'', au) for au in authors]  # pPMCArticles
+    authors = [re.sub(r"^(van der |vander |van den |vanden |van |von |de |de la |del |della |dell' |st |saint )", r'', au) for au in authors]  # pPMCArticles
     authors = [re.sub(r"^(mac|mc) ", r"\1", au) for au in authors]  # mc intosh mc mahon
     authors = set(authors)  # unique normalized names
     authors = split_composed_names(authors)  # needs to be done first since hyphens would be removed by normalization
     return authors
 
 
-def split_composed_names(authors: List[List[str]]):
+def split_composed_names(authors: List[str]) -> List[List[str]]:
+    """Composed last names, eg 'Villanueva-Meyer', are split and expanded into four alternatives:
+    'Villanueva-Meyer' 'Meyer-Villanueva', 'Meyer', 'Villanueva' to maximize chance to retrieve papers.
+
+    Args:
+        authors (List[str]): the list of last names
+
+    Returns:
+        (List[List[str]]): a list of list of alternatives.
+    """
     expanded_author_list = []
     for last_name in authors:
-        alternatives = [last_name]
-        if '-' in last_name:  # composed name
-            sub_names = last_name.split('-')
-            alternatives.extend(sub_names)  # store individual names
+        alternatives = [last_name]  # original name
+        if '-' in last_name: 
+            sub_names = last_name.split('-')  # split composed name
+            alternatives.extend(sub_names)  # individual names
             alternatives.append('-'.join([sub_names[1], sub_names[0]]))  # invert composed name
         expanded_author_list.append(alternatives)
     return expanded_author_list
 
 
 def flat_unique_set(x: List[List[str]]) -> Set[str]:
+    """Flattens a list of list and remove duplicates.
+
+    Args:
+       x (List[List[str]]): the list of lists.
+
+    Returns:
+       (Set[str]): the flattened deduplicated set.
+    """
     flattened = [element for alt in x for element in alt]
     return set(flattened)
 
