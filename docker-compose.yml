@@ -15,6 +15,13 @@ services:
     - ./src:/app/src
     - ./data:/data
     - ./results:/results
+    - ./plots:/plots
     - ./log:/log
+    - /tmp/.X11-unix:/tmp/.X11-unix
+    - /tmp:/tmp
+    - .config:/.config
+    environment:  # xhost + 127.0.0.1; docker-compose run --rm -e DISPLAY=host.docker.internal:0 matchpub
+      - XAUTHORITY=${XAUTH} # needs to make sure export XAUTH before i.e. in .bashrc
+      - DISPLAY=${DISPLAY} # this seems to be exported by default 
     working_dir: /app
     command: ["/bin/bash"]

@@ -9,3 +9,6 @@ xlrd
 openpyxl
 tqdm
 beautifulsoup4
+plotly
+matplotlib
+kaleido
