@@ -91,7 +91,9 @@ class EJPReport:
         reduced_data = pd.DataFrame()
         for feature_name, idx in self.feature_index.items():
             reduced_data[feature_name] = data[idx]  # pick only the columns we need
-        self.data = reduced_data
+        mask = reduced_data['decision'].apply(lambda x: re.match(r"(.*reject)|(.*accept)", x, re.IGNORECASE) is not None)
+        filtered_data = reduced_data[mask].copy()
+        self.data = filtered_data
 
     def _load_articles(self):
         self.articles = [Submission(row=row) for i, row in self.data.iterrows()]

@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from typing import List, Set
 
 
-def normalize(s: str, do_not_remove: List[str] = []) -> str:
+def normalize(s: str, do_not_remove: str = '') -> str:
     """Normalizes a string but setting to lowcase, removing special characters, punctuations and html tags.
 
     Args:
@@ -25,11 +25,20 @@ def normalize(s: str, do_not_remove: List[str] = []) -> str:
     # remove punctuation
     punctuation = string.punctuation
     for c in do_not_remove:
-        punctuation.replace(c, '')
+        punctuation = punctuation.replace(c, '')
     s = re.sub(f"[{punctuation}]", " ", s)  # Note: hyphens are NOT removed
     # remove accents, non breaking spaces, en-dash, em-dash, minus, special characters,
     s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('utf-8', 'ignore')
     return s
+
+
+def last_name(name: str) -> str:
+    match = re.search(r"((?<= )|(?<=^))(mc |mac |van ?der |van ?den |van |van't |von ?der |von |de |de la |del |della |dell'|st |saint |t'|n')?\S+$", name)
+    try:
+        last_name = match.group(0)
+    except Exception:
+        import pdb; pdb.set_trace()
+    return last_name
 
 
 def process_authors(authors: List[str]) -> List[List[str]]:
@@ -42,11 +51,12 @@ def process_authors(authors: List[str]) -> List[List[str]]:
     Returns:
         (List[List[str]]): a list of possible alternatives for each cleaned up last name.
     """
-    authors = [normalize(au, do_not_remove=['-', "'"]) for au in authors]  # tremove punctuation exluding hyphens
-    authors = [re.sub(r"^(van der |vander |van den |vanden |van |von |de |de la |del |della |dell' |st |saint )", r'', au) for au in authors]  # pPMCArticles
-    authors = [re.sub(r"^(mac|mc) ", r"\1", au) for au in authors]  # mc intosh mc mahon
+    authors = [normalize(au, do_not_remove="-'") for au in authors]  # tremove punctuation exluing hyphens
+    # authors = [re.sub(r"^(van der |vander |van den |vanden |van |von |de |de la |del |della |dell' |st |saint )", r'', au) for au in authors]
+    # authors = [re.sub(r"^(mac|mc) ", r"\1", au) for au in authors]  # mc intosh mc mahon
     authors = set(authors)  # unique normalized names
     authors = split_composed_names(authors)  # needs to be done first since hyphens would be removed by normalization
+    # generates alternatives with mc mac
     return authors
 
 
@@ -63,10 +73,12 @@ def split_composed_names(authors: List[str]) -> List[List[str]]:
     expanded_author_list = []
     for last_name in authors:
         alternatives = [last_name]  # original name
-        if '-' in last_name: 
-            sub_names = last_name.split('-')  # split composed name
+        if '-' in last_name:
+            sub_names = last_name.split('-')  # split composed name)
+            sub_names = list(filter(lambda name: len(name) > 2, sub_names))  # remove super short subnames like El or A
             alternatives.extend(sub_names)  # individual names
-            alternatives.append('-'.join([sub_names[1], sub_names[0]]))  # invert composed name
+            if len(sub_names) == 2:
+                alternatives.append('-'.join([sub_names[1], sub_names[0]]))  # invert composed name
         expanded_author_list.append(alternatives)
     return expanded_author_list
 

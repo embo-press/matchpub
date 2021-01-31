@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field, InitVar
 import dataclasses
-from collections import OrderedDict, UserDict
+from collections import OrderedDict, UserDict, UserList
 from typing import List, Tuple
 import re
 from lxml.etree import Element
 import pandas as pd
 
-from .utils import process_authors
+from .utils import process_authors, last_name
 
 
 @dataclass
@@ -37,9 +37,9 @@ class Submission(Paper):
         full_names = content.split(",")
         stripped_full_names = [au.strip() for au in full_names]  # ejp has a bug which duplicates names with an added space
         unique_names = list(set(stripped_full_names))
-        full_names_clean = [re.sub(r"-corr$", "", au.strip()) for au in unique_names]
-        full_names_clean = list(filter(None, full_names_clean))
-        last_names = [au.split()[-1] for au in full_names_clean]
+        full_names_clean = [re.sub(r"-corr$", "", au).strip() for au in unique_names]
+        full_names_clean = list(filter(None, full_names_clean))  # remove empty names
+        last_names = [last_name(au) for au in full_names_clean]  # extract last names including particle
         return last_names
 
     def __str__(self):
@@ -59,7 +59,8 @@ class Article(Paper):
     abstract: str = field(default='')
     citations: int = field(default=None)
     strategy: str = field(default='')
-    score: float = field(default=None)
+    author_overlap_score: float = field(default=None)
+    title_similarity_score: float = field(default=None)
     discard: bool = field(default=False)
 
     xml: InitVar[Element] = None
@@ -69,8 +70,11 @@ class Article(Paper):
         self.pub_type: str = xml.findtext('.//pubType', '').lower()
         if self.pub_type == 'preprint':
             self.journal_name: str = xml.findtext('.//publisher', '')
+            self.journal_abbr: str = self.journal_name
         else:
             self.journal_name: str = xml.findtext('./journalInfo/journal/title', '')
+            self.journal_abbr: str = xml.findtext('./journalInfo/journal/medlineAbbreviation', '')
+
         self.year: str = xml.findtext('./journalInfo/yearOfPublication', '')
         self.month: str = xml.findtext('./journalInfo/monthOfPublication', '')
         self.title: str = xml.findtext('./title', '')
@@ -95,12 +99,12 @@ class ResultDict(UserDict):
 
     def __init__(
         self,
-        result: Result, 
+        result: Result,
         field_label_map: List[Tuple[str, str]] = [
             ('submission.manuscript_nm', 'manuscript_nm'),
             ('submission.editor', 'editor'),
             ('submission.decision', 'decision'),
-            ('article.journal_name', 'journal'),
+            ('article.journal_abbr', 'journal'),
             ('article.citations', 'citations'),
             ('submission.title', "original_title"),
             ('article.title', 'retrieved_title'),
@@ -112,7 +116,8 @@ class ResultDict(UserDict):
             ('article.month', 'pub_month'),
             ('article.abstract', 'retrieved_abstract'),
             ('article.strategy', 'retrieval_strategy'),
-            ('article.score', 'matching_score'),
+            ('article.title_similarity_score', 'title_score'),
+            ('article.author_overlap_score', 'author_score'),
         ]
     ):
         d = {
@@ -128,3 +133,12 @@ class ResultDict(UserDict):
     @property
     def cols(self):
         return list(self.keys())
+
+
+class Analysis(UserList):
+    def __init__(self, results: List[Result] = [], field_label_map: List[Tuple[str, str]] = []):
+        self.data = [ResultDict(r) for r in results]
+        if results:
+            self.cols = self.data[0] if results else []
+        else:
+            self.cols = []

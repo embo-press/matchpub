@@ -7,11 +7,12 @@ from typing import List, Tuple
 from datetime import datetime
 from argparse import ArgumentParser
 
-from .models import Submission, Article, Result, ResultDict
+from .models import Submission, Result, Analysis
 from .search import PMCService
 from .ejp import EJPReport
 from .match import match_by_author, match_by_title
 from .scopus import citedby_count
+from .viz import citation_distribution, journal_distributions
 from . import logger
 
 
@@ -27,7 +28,10 @@ class Scanner:
         logger.info(f"scanning {N} submissions {self.ejp_report.metadata['time_window']}.")
         found, not_found = self.retrieve(self.ejp_report.articles)
         self.add_citations(found)
-        self.export(found, not_found)
+        self.add_citations(not_found)
+        df = self.export(found, 'found')
+        self.export(not_found, 'not_found')
+        self.viz(df)
 
     def retrieve(self, submissions: List[Submission]) -> Tuple[List[Result], List[Result]]:
         found = []
@@ -48,14 +52,14 @@ class Scanner:
         search_res = self.engine.search_by_author(authors)
         match = None
         if search_res:
-            match, success = match_by_title(search_res, title)
+            match, success = match_by_title(search_res, authors, title)
             match.strategy = 'search_by_author_match_by_title'
         else:
             success = False
         if not success:
             search_res = self.engine.search_by_title(title)
             if search_res:
-                match, success = match_by_author(search_res, authors)
+                match, success = match_by_author(search_res, authors, title)
                 match.strategy = 'search_by_title_match_by_author'
             else:
                 success = False
@@ -64,29 +68,27 @@ class Scanner:
     def add_citations(self, results: List[Result]):
         logger.info(f"fetching {len(results)} scopus citations.")
         for r in tqdm(results):
-            r.article.citations = citedby_count(r.article.pmid)
+            if r.article is not None:
+                r.article.citations = citedby_count(r.article.pmid)
 
-    def export(self, found: List[Result], not_found: List[Result]):
-        found = [ResultDict(r) for r in found]
-        not_found = [ResultDict(r) for r in not_found]
+    def export(self, results: List[Result], name: str) -> pd.DataFrame:
+        analysis = Analysis(results)
 
         timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         dest_path = Path(self.dest_path)
-        neg_path = dest_path.parent / f"{dest_path.stem}-not-found-{timestamp}.xlsx"
-        dest_path = dest_path.parent / f"{dest_path.stem}-{timestamp}.xlsx"
+        dest_path = dest_path.parent / f"{dest_path.stem}-{name}-{timestamp}.xlsx"
 
-        df = pd.DataFrame(found)
-        cols = found[0].cols
+        df = pd.DataFrame(analysis)
         df = df.sort_values(by='citations', ascending=False)
         with pd.ExcelWriter(dest_path) as writer:
-            df[cols].to_excel(writer)
-        logger.info(f"results saved to {dest_path}.")
+            df[analysis.cols].to_excel(writer)
+        logger.info(f"results {name} saved to {dest_path}")
 
-        neg = pd.DataFrame(not_found)
-        cols = not_found[0].cols
-        with pd.ExcelWriter(neg_path) as writer:
-            neg[cols].to_excel(writer)
-        logger.info(f"submissions not found saved to {neg_path}.")
+        return df
+
+    def viz(self, analysis: pd.DataFrame):
+        citation_distribution(analysis, self.dest_path)
+        journal_distributions(analysis, self.dest_path)
 
 
 def self_test():
@@ -104,6 +106,8 @@ if __name__ == "__main__":
     debug = args.debug
     if debug:
         logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     report_path = args.report
     dest_path = args.dest
     if report_path:

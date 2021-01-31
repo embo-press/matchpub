@@ -1,7 +1,7 @@
 import numpy as np
 from lxml.etree import Element
 import spacy
-from typing import List, Tuple, Callable, Union
+from typing import List, Tuple, Set, Callable, Union
 
 from .utils import process_authors, flat_unique_set, normalize
 from .models import Article
@@ -11,8 +11,9 @@ from . import logger
 nlp = spacy.load('en_core_web_lg')
 
 
-def match_by_title(candidates: List[Article], submitted_title: str, threshold: float = 0.85) -> Article:
+def match_by_title(candidates: List[Article], submitting_authors: List[List[str]], submitted_title: str, auth_threshold: float = 0.50, title_threshold: float = 0.85) -> Tuple[Article, bool]:
     """Given a list of candidate articles, find the one that has the highest similartiy score for the title.
+    Validates the match to satisfy sufficient author overlap as well.
 
     Args:
         candidates (List[Article]): the list of candidate submissions.
@@ -21,13 +22,19 @@ def match_by_title(candidates: List[Article], submitted_title: str, threshold: f
 
     Returns:
         (Article): the best retrieved article.
+        (bool): whether the similarity score is above threshold and the match successful
     """
-    match = _match(candidates, submitted_title, max_title_similarity, threshold)
-    return match
+    match, success = _match(candidates, submitted_title, max_title_similarity, title_threshold)
+    author_overlap_score = overlap_score(flat_unique_set(submitting_authors), len(submitting_authors), flat_unique_set(match.expanded_author_list))
+    match.author_overlap_score = author_overlap_score
+    validation = author_overlap_score >= auth_threshold
+    success = success and validation
+    return match, success
 
 
-def match_by_author(candidates: List[Article], submitting_authors: List[List[str]], threshold: float = 0.80) -> Article:
+def match_by_author(candidates: List[Article], submitting_authors: List[List[str]], submitted_title: str, auth_threshold: float = 0.50, title_threshold: float = 0.85) -> Tuple[Article, bool]:
     """Given a list of candidate articles, find the one that has the maximal overlap of author names.
+    Validates the match to satisty sufficient title simlilarity.
 
     Args:
         candidates (List[Article]): the list of candidate Articles.
@@ -36,9 +43,14 @@ def match_by_author(candidates: List[Article], submitting_authors: List[List[str
 
     Returns:
         (Article): the best retrieved article.
+        (bool): 
     """
-    match = _match(candidates, submitting_authors, max_author_overlap, threshold)
-    return match
+    match, success = _match(candidates, submitting_authors, max_author_overlap, auth_threshold)
+    title_similarity_score = similarity(submitted_title, match.title)
+    match.title_similarity_score = title_similarity_score
+    validation = title_similarity_score >= title_threshold
+    success = success and validation
+    return match, success
 
 
 def _match(
@@ -61,19 +73,19 @@ def _match(
     """
     match, score = similarity_funct(candidates, submitted_feature)
     logger.debug(f"best match : '{match.title}' {match.author_list}.  Score {score:.2f} ({similarity_funct.__name__})")
-    match.score = score
-    if (score > threshold):
-        success = True
-    else:
-        success = False
-        logger.debug(f"DISCARDED with score {match.score:.2f} < {threshold}")
+    success = (score >= threshold)
+    if not success:
+        logger.debug(f"DISCARDED with primary score {score:.2f} < {threshold}")
     return match, success
 
 
 def max_title_similarity(candidates: List[Article], title: str = '') -> Tuple[Article, float]:
     score_list = [similarity(title, Article.title) for Article in candidates]
     idx = np.array(score_list).argmax()
-    return candidates[idx], score_list[idx]
+    match = candidates[idx]
+    score = score_list[idx]
+    match.title_similarity_score = score
+    return match, score
 
 
 def similarity(s1: str, s2: str) -> float:
@@ -84,12 +96,21 @@ def similarity(s1: str, s2: str) -> float:
 
 
 def max_author_overlap(candidates: List[Article], authors: List[List[str]] = [[]]) -> Tuple[Article, float]:
-    num_authors = len(authors)
-    unique_names = flat_unique_set(authors)
-    overlap_list = [len(unique_names & flat_unique_set(a.expanded_author_list)) for a in candidates]
-    idx = np.array(overlap_list).argmax()
-    score = overlap_list[idx] / num_authors
-    return candidates[idx], score
+    num_submitting_authors = len(authors)  # the actual number of submitting authors, not the expanded list
+    flattened_unique_submitting_names = flat_unique_set(authors)
+    flattened_unique_candidate_names = [flat_unique_set(a.expanded_author_list) for a in candidates]
+    overlap_scores = [overlap_score(flattened_unique_submitting_names, num_submitting_authors, names) for names in flattened_unique_candidate_names]
+    idx = np.array(overlap_scores).argmax()
+    match = candidates[idx]
+    score = overlap_scores[idx]
+    match.author_overlap_score = score
+    return match, score
+
+
+def overlap_score(s1: Set[str], N: int, s2: Set[str]) -> float:
+    # N is the length of the non-expanded list of author
+    score = len(s1 & s2) / N
+    return score
 
 
 def self_test():
