@@ -35,33 +35,38 @@ def citation_distribution(analysis: pd.DataFrame, dest_path: str):
 
 def journal_distributions(analysis: pd.DataFrame, dest_path: str):
     dest_path = Path(dest_path)
+    max_slices = 21 if len(analysis) > 21 else len(analysis)
     analysis['count'] = 1  # adding a column to count
-    # analysis['journal_abbr'] = analysis['journal'].apply(
-    #     lambda name: 
-    #         ".".join([n[0].upper() for n in name.split(" ") if n.isalpha() and len(n) > 3]) if len(name) > 30 else name
-    # )
     rejected = analysis[analysis['decision'].apply(lambda x: re.search(r"reject", x, re.IGNORECASE) is not None)]
     grouped = rejected.groupby("journal").count()  # journal becomes the index
     df = pd.DataFrame(grouped.reset_index())  # reset_index() will insert back column journal!
-    df.loc[df["count"] < 10, 'journal'] = 'other'
+    df.sort_values(by='count', ascending=False, inplace=True)
+    df.reset_index(inplace=True)  # so that loc[] below works as expected
+    df.loc[max_slices - 1:, 'journal'] = 'other'
     fig1 = px.pie(
         df,
         values='count',
         names='journal',
-        width=600, height=600,
+        # width=600, height=600,
         color='journal',
-        color_discrete_sequence=px.colors.qualitative.G10,
+        # color_discrete_sequence=px.colors.sequential.Viridis,
+        color_discrete_sequence=px.colors.qualitative.Prism
         # color_discrete_sequence=px.colors.sequential.Aggrnyl
     )
     fig1.update_traces(
         textposition='outside',
         textinfo='label',
-        textfont_size=5,
-
+        textfont_size=8,
+        marker=dict(
+            line=dict(
+                width=0.5,
+                color='White'
+            )
+        )
     )
     fig1.update_layout(
         title='Fate of rejected manuscripts',
-        title_font_size=12,
+        title_font_size=14,
         showlegend=False,
         # uniformtext_minsize=8, uniformtext_mode='hide',
         # legend=dict(
@@ -83,7 +88,18 @@ def journal_distributions(analysis: pd.DataFrame, dest_path: str):
         values='count',
         color='journal',
         color_discrete_sequence=px.colors.qualitative.Antique,
+    )
+    fig2.update_traces(
+        marker=dict(
+            line=dict(
+                width=1,
+                color='White'
+            )
+        )
+    )
+    fig2.update_layout(
         title='Fate of manuscripts by decision type.',
+        title_font_size=14,
     )
     save_fig(fig2, 'journal_distro_tree', dest_path)
 
@@ -144,4 +160,5 @@ if __name__ == "__main__":
         analysis = pd.read_excel(input_path)
         citation_distribution(analysis, input_path)
         journal_distributions(analysis, input_path)
-    self_test()
+    else:
+        self_test()

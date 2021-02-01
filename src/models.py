@@ -56,6 +56,7 @@ class Article(Paper):
     year: str = field(default='')
     month: str = field(default='')
     journal_name: str = field(default='')
+    journal_abbr: str = field(default='')
     abstract: str = field(default='')
     citations: int = field(default=None)
     strategy: str = field(default='')
@@ -74,7 +75,6 @@ class Article(Paper):
         else:
             self.journal_name: str = xml.findtext('./journalInfo/journal/title', '')
             self.journal_abbr: str = xml.findtext('./journalInfo/journal/medlineAbbreviation', '')
-
         self.year: str = xml.findtext('./journalInfo/yearOfPublication', '')
         self.month: str = xml.findtext('./journalInfo/monthOfPublication', '')
         self.title: str = xml.findtext('./title', '')
