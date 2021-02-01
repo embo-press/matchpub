@@ -39,7 +39,8 @@ class Submission(Paper):
         unique_names = list(set(stripped_full_names))
         full_names_clean = [re.sub(r"-corr$", "", au).strip() for au in unique_names]
         full_names_clean = list(filter(None, full_names_clean))  # remove empty names
-        last_names = [last_name(au) for au in full_names_clean]  # extract last names including particle
+        full_names_super_clean = [re.sub(r"\s+", " ", au) for au in full_names_clean]  # some names have apparently several spaces or non-breaking spaces between first and last name
+        last_names = [last_name(au) for au in full_names_super_clean]  # extract last names including particle
         return last_names
 
     def __str__(self):

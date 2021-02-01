@@ -12,7 +12,7 @@ from .search import PMCService
 from .ejp import EJPReport
 from .match import match_by_author, match_by_title
 from .scopus import citedby_count
-from .viz import citation_distribution, journal_distributions
+from .viz import overview, citation_distribution, journal_distributions
 from . import logger
 
 
@@ -29,9 +29,11 @@ class Scanner:
         found, not_found = self.retrieve(self.ejp_report.articles)
         self.add_citations(found)
         self.add_citations(not_found)
-        df = self.export(found, 'found')
-        self.export(not_found, 'not_found')
-        self.viz(df)
+        timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+        logger.info(f"exporting results with timestamp {timestamp}")
+        df_found = self.export(found, 'found', timestamp)
+        df_not_found = self.export(not_found, 'not_found', timestamp)
+        self.viz(df_found, df_not_found)
 
     def retrieve(self, submissions: List[Submission]) -> Tuple[List[Result], List[Result]]:
         found = []
@@ -71,10 +73,9 @@ class Scanner:
             if r.article is not None:
                 r.article.citations = citedby_count(r.article.pmid)
 
-    def export(self, results: List[Result], name: str) -> pd.DataFrame:
+    def export(self, results: List[Result], name: str, timestamp: str) -> pd.DataFrame:
         analysis = Analysis(results)
 
-        timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         dest_path = Path(self.dest_path)
         dest_path = dest_path.parent / f"{dest_path.stem}-{name}-{timestamp}.xlsx"
 
@@ -86,9 +87,10 @@ class Scanner:
 
         return df
 
-    def viz(self, analysis: pd.DataFrame):
-        citation_distribution(analysis, self.dest_path)
-        journal_distributions(analysis, self.dest_path)
+    def viz(self, found: pd.DataFrame, not_found: pd.DataFrame):
+        overview(found, not_found, dest_path)
+        citation_distribution(found, self.dest_path)
+        journal_distributions(found, self.dest_path)
 
 
 def self_test():

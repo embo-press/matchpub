@@ -96,6 +96,51 @@ def flat_unique_set(x: List[List[str]]) -> Set[str]:
     return set(flattened)
 
 
-def binarize(v, bin_number, bin_size):
-    bins = [[i * bin_size, (i + 1) * bin_size] for i in range(0, bin_number)]
-    return bins, [len([e for e in v if e >= bin[0] and e < bin[1]]) for bin in bins]
+ed_rej_matcher = re.compile(
+    r"(reject before.*)|(reject and refer.*)|(reject with.*)|(editorial rej.*)",
+    re.IGNORECASE
+)
+post_review_rej_matcher = re.compile(
+    r"(reject post.*)|(rejection$)|(reject$)|(.*border line reject)",
+    re.IGNORECASE
+)
+accept_matcher = re.compile(r"accept", re.IGNORECASE)
+
+
+def self_test():
+    decisions = {
+        "accepted": ["accept"],
+        "rejected before review": [
+            "reject and refer"
+            "reject before review"
+            "reject before review advisory editorial board",
+            "reject with board advice & refer",
+            "editorial rejection",
+            "editorial rejection (EBA)",
+        ],
+        "rejected after review": [
+            "reject post review",
+            "reject post review - 2 reviewer",
+            "reject post review (invite resubmission)",
+            "Revise and Re-Review - Border Line Reject",
+            "reject post review & refer",
+            "rejection",
+            "reject"
+        ]
+    }
+    matchers = {
+        "accepted": accept_matcher,
+        "rejected before review": ed_rej_matcher,
+        "rejected after review": post_review_rej_matcher
+    }
+    for decision, variations in decisions.items():
+        for v in variations:
+            for dec, matcher in matchers.items():
+                if dec == decision:
+                    assert matcher.match(v) is not None, f"'{v}' is not matched as a '{decision}'"
+                else:
+                    assert matcher.match(v) is None, f"'{v}' should NOT match a '{decision}'"
+    print("Passed decision matcher tests!")
+
+if __name__ == "__main__":
+    self_test()

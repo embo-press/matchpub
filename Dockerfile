@@ -18,7 +18,9 @@ RUN pip install beautifulsoup4
 RUN pip install plotly
 RUN pip install matplotlib
 RUN pip install kaleido
+RUN pip install python-dotenv
 
 ARG user_id
 ARG group_id
-USER $user_id:$dgroup_id
+RUN useradd --uid $user_id --gid $group_id matchpub
+USER matchpub

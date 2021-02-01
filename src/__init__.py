@@ -1,5 +1,11 @@
 import logging
+from dotenv import load_dotenv
+import os
 from pathlib import Path
+
+load_dotenv()
+SCOPUS = os.getenv('SCOPUS')
+API_KEY = os.getenv('API_KEY')
 
 logger = logging.getLogger('matchpub logger')
 logger.setLevel(logging.DEBUG)
@@ -17,3 +23,5 @@ sh = logging.StreamHandler()
 sh.setLevel(logging.DEBUG)
 sh.setFormatter(formatter)
 logger.addHandler(sh)
+
+

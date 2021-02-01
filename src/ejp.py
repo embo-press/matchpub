@@ -88,10 +88,11 @@ class EJPReport:
         start = self._guess_start(sheet)  # where does the actual table start?
         data = sheet[start:].copy()  # select the relevant rows of the data frame
         self._cleanup(data)  # remove 'paraiste' rows that repeat the header
+        # remove anything that is not matching an accept/reject decision
         reduced_data = pd.DataFrame()
         for feature_name, idx in self.feature_index.items():
             reduced_data[feature_name] = data[idx]  # pick only the columns we need
-        mask = reduced_data['decision'].apply(lambda x: re.match(r"(.*reject)|(.*accept)", x, re.IGNORECASE) is not None)
+        mask = reduced_data['decision'].apply(lambda x: re.search(r"(reject)|(accept)", x, re.IGNORECASE) is not None)
         filtered_data = reduced_data[mask].copy()
         self.data = filtered_data
 
