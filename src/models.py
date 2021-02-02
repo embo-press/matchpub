@@ -3,6 +3,7 @@ import dataclasses
 from collections import OrderedDict, UserDict, UserList
 from typing import List, Tuple
 import re
+
 from lxml.etree import Element
 import pandas as pd
 
@@ -11,6 +12,13 @@ from .utils import process_authors, last_name
 
 @dataclass
 class Paper:
+    """Base class for a paper holding title, author list and an expanded author list names, useful when running search.
+
+    Fields:
+        title (str): the title.
+        author_list (List[str]): the list of authors' *last names*
+        expanded_author_list (List[List[str]]): the list of authors last name, each names being expanded to alternatives when necessary (eg composed names)
+    """
     title: str = field(default='')
     author_list: List[str] = field(default_factory=list)
     expanded_author_list: List[List[str]] = field(default_factory=list)
@@ -18,22 +26,46 @@ class Paper:
 
 @dataclass
 class Submission(Paper):
+    """A Submission as extracted from an eJP report parsed into a pandas DataFrame.
+    Includes editorial information in addition to fields inherited from Paper.
+
+    Args:
+        row (pd.Series): the pandas row parsed form the eJP report row. 
+
+    Fields:
+        manuscript_nm (str): the manuscript number internal to the editorial system.
+        editor (str): the handling editor.
+        decision (str): the editorial decision associated with this manuscirpt number.
+    """
     manuscript_nm: str = field(default='')
     editor: str = field(default='')
     decision: str = field(default='')
 
     row: InitVar[pd.Series] = None
 
-    def __post_init__(self, row):
+    def __post_init__(self, row: pd.Series):
         self.manuscript_nm: str = row['manuscript_nm']
         self.editor: str = row['editor']
-        self.title: str = row['title']
         self.decision: str = row['decision']
+
+        self.title: str = row['title']
         self.author_list: List[str] = self.split_author_list(row['authors'])
         self.expanded_author_list: List[List[str]] = process_authors(self.author_list)
 
     @staticmethod
     def split_author_list(content: str) -> List[str]:
+        """Splits the single string into author last names.
+        Assumes that the names are comma separated with first name first and last name last, with no intervening commas.
+        Cleans it up from 'decoration' added by eJP and removes duplicates, removes double spaces, non breaking spaces or empty entries.
+        Last names are exctracted to INCLUDE a particle (de, von, saint, etc...)
+        The names are NOT yet normalized at this stage. 
+
+        Args:
+            content (str): the author list as single string.
+
+        Returns:
+           (List[str]): the list with unique last names.
+        """
         full_names = content.split(",")
         stripped_full_names = [au.strip() for au in full_names]  # ejp has a bug which duplicates names with an added space
         unique_names = list(set(stripped_full_names))
@@ -51,6 +83,26 @@ class Submission(Paper):
 
 @dataclass
 class Article(Paper):
+    """A published article retrieved from EuropePMC. Might become a specialize class later if we re-introduce PubMed as search engine.
+    It assumes that EuropePMC results are returned in XML format using ResultType=Core
+    In addition to the fields inherited from Paper, it contains publishing information such as doi, journal names etc...
+
+    Args:
+        xml (Element): the XML Element parsed from the results returned by EuropePMC.
+
+    Fields:
+       doi (str): the DOI of the published paper.
+       pmid (str): the PMID identifier in PubMed.
+       pub_type (str): whether a preprint, book, journal article.
+       month (str): the month of publishing.
+       year (str): the year of publsishing.
+       journal_name (str): the full-length journal title.
+       journal_abbr (str): the abbreviated journal title as it appears in PubMed.
+       abstract (str): the abstract.
+       citations (int): the citation number obtained from Scopus.
+       author_overlap_score (float): the degree of overalp of authors with the matching submission.
+       title_similarty_score (float): the similarity of the title with the title of the matching submission.
+    """
     doi: str = field(default='')
     pmid: str = field(default='')
     pub_type: str = field(default='')
@@ -63,7 +115,6 @@ class Article(Paper):
     strategy: str = field(default='')
     author_overlap_score: float = field(default=None)
     title_similarity_score: float = field(default=None)
-    discard: bool = field(default=False)
 
     xml: InitVar[Element] = None
 
@@ -78,9 +129,10 @@ class Article(Paper):
             self.journal_abbr: str = xml.findtext('./journalInfo/journal/medlineAbbreviation', '')
         self.year: str = xml.findtext('./journalInfo/yearOfPublication', '')
         self.month: str = xml.findtext('./journalInfo/monthOfPublication', '')
-        self.title: str = xml.findtext('./title', '')
         self.doi: str = xml.findtext('./doi', '')
         self.abstract: str = xml.findtext('./abstractText', '')
+
+        self.title: str = xml.findtext('./title', '')
         self.author_list: List[str] = [au.text for au in xml.findall('./authorList/author/lastName')]
         self.expanded_author_list: List[List[str]] = process_authors(self.author_list)
 
@@ -92,15 +144,62 @@ class Article(Paper):
 
 @dataclass
 class Result:
+    """The matched article and submission resulting from the search and matching algorithm.
+
+    Fields:
+        submission (Submission): the submitted mansucript.
+        article (Article): the matching published article.
+    """
     submission: Submission = field(default=None)
     article: Article = field(default=None)
 
 
 class ResultDict(UserDict):
+    """A customized ordered dictionary that maps the fields of matching Article and Submission to the ordered sequence of headers or columns
+    names that are used when saving results in Excel files or processing the data in pandas DataFrame.
+    Dataclass fields are mapped to dictionary keys. To allow reordering of fields from Article and Submissions, fields
+    are encoded with the convention: (<submission|article>.<field_name>, <my_header_name>)
 
+    Args:
+        result (Result): the result to be mapped.
+        field_label_map (List[Tuple[str, str]]): the list of ordered field names (using the convention (<submission|article>.<field_name>).
+    """
     def __init__(
         self,
         result: Result,
+        field_label_map: List[Tuple[str, str]]
+    ):
+        d = {
+            'submission': dataclasses.asdict(result.submission) if result.submission is not None else {},
+            'article': dataclasses.asdict(result.article) if result.article is not None else {},
+        }
+        od = OrderedDict()
+        for field_name, label in field_label_map:
+            obj, f = field_name.split('.')
+            od[label] = d[obj].get(f, None)
+        self.data = od
+
+    @property
+    def cols(self):
+        """The ordered list of header or column names."""
+        return list(self.keys())
+
+
+class Analysis(UserList):
+    """A list of results ready to be ingested by pandas DataFrame constructor.
+    The names and order of the columns can be provided in field_lable_map.
+    DaArticle and Submission fields are mapped to the respective desired column/header names.
+    Column/header names MUST be unique.
+    To allow arbitray reordering of fields from Article and Submissions, fields
+    are encoded in Tuples with the convention: (<submission|article>.<field_name>, <my_header_name>)
+
+    Args:
+        results (List[Result])
+        field_label_map (List[List[Tuple]])): the mapping between Article and Submission fields with the desired column/header names.
+    """
+    def __init__(
+        self,
+        results: List[Result] = [],
         field_label_map: List[Tuple[str, str]] = [
             ('submission.manuscript_nm', 'manuscript_nm'),
             ('submission.editor', 'editor'),
@@ -121,23 +220,6 @@ class ResultDict(UserDict):
             ('article.author_overlap_score', 'author_score'),
         ]
     ):
-        d = {
-            'submission': dataclasses.asdict(result.submission) if result.submission is not None else {},
-            'article': dataclasses.asdict(result.article) if result.article is not None else {},
-        }
-        od = OrderedDict()
-        for field_name, label in field_label_map:
-            obj, f = field_name.split('.')
-            od[label] = d[obj].get(f, None)
-        self.data = od
-
-    @property
-    def cols(self):
-        return list(self.keys())
-
-
-class Analysis(UserList):
-    def __init__(self, results: List[Result] = [], field_label_map: List[Tuple[str, str]] = []):
         self.data = [ResultDict(r) for r in results]
         if results:
             self.cols = self.data[0] if results else []

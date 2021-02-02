@@ -1,7 +1,8 @@
+from typing import List, Tuple, Set, Callable, Union
+
 import numpy as np
 from lxml.etree import Element
 import spacy
-from typing import List, Tuple, Set, Callable, Union
 
 from .utils import process_authors, flat_unique_set, normalize
 from .models import Article

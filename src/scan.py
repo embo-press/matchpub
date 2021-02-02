@@ -1,11 +1,12 @@
 
-from tqdm import tqdm
-import pandas as pd
 import logging
 from pathlib import Path
 from typing import List, Tuple
 from datetime import datetime
 from argparse import ArgumentParser
+
+from tqdm import tqdm
+import pandas as pd
 
 from .models import Submission, Result, Analysis
 from .search import PMCService
@@ -17,13 +18,26 @@ from . import logger
 
 
 class Scanner:
+    """Scans a list of submissions and attempts to find best matching papers in PubMed Central.
+    A dual search strategy is used:
+    - first search using the list of authors then confirm with the title and double check with the author list again.
+    - if the first strategy fails, search using the title and then confirm with the list of authors and double check with the title again.
+
+    Args:
+        ejp_report (EJPReport): the eJP report that includes the list of submissions.
+        dest_path (str): the destination path to save the results.
+        engine (PMCService): the search engine used to retrieve published papers.
+    """
 
     def __init__(self, ejp_report: EJPReport, dest_path: str, engine: PMCService = PMCService()):
         self.ejp_report = ejp_report
-        self.engine = engine
         self.dest_path = dest_path
+        self.engine = engine
 
     def run(self):
+        """Retrieves the best matching published papers corresponding to the submissions of interest, adds citation data, 
+        exports the results to time-stamped Excel files and generate summary visualization.
+        """
         N = len(self.ejp_report.articles)
         logger.info(f"scanning {N} submissions {self.ejp_report.metadata['time_window']}.")
         found, not_found = self.retrieve(self.ejp_report.articles)
@@ -36,6 +50,16 @@ class Scanner:
         self.viz(df_found, df_not_found)
 
     def retrieve(self, submissions: List[Submission]) -> Tuple[List[Result], List[Result]]:
+        """Loops through a list of submissions and accumulates articles found and not found in PubMed Central.
+        A result keeps record of both the Submission and its cognate Article if any.
+
+        Args:
+            submissions (List[Submission]): a submission as imported from the editorial system report.
+
+        Returns:
+            (List[Result]): the list of results for articles that were found.
+            (List[Result]): the list of results for articles that were NOT found.
+        """
         found = []
         not_found = []
         for submission in tqdm(submissions):
@@ -48,6 +72,15 @@ class Scanner:
         return found, not_found
 
     def search(self, submission: Submission) -> Result:
+        """Performs the dual seach to find a published article best matching the submission.
+
+        Args:
+            submission (Submission): the submission used as query for the search.
+
+        Returns: 
+            (Result): the result of the search, keeping hold of the Submission and the found Article if any.
+            (bool): whether a good match was successfully found.
+        """
         title = submission.title
         authors = submission.expanded_author_list
         logger.debug(f"Looking for {submission.title} by {submission.author_list}.")
@@ -68,12 +101,28 @@ class Scanner:
         return Result(submission, match), success
 
     def add_citations(self, results: List[Result]):
+        """Retrieves citation data and updates Result.article.
+
+        Args:
+            (List[Result]): the list of results to update with citation data.
+        """
         logger.info(f"fetching {len(results)} scopus citations.")
         for r in tqdm(results):
             if r.article is not None:
                 r.article.citations = citedby_count(r.article.pmid)
 
     def export(self, results: List[Result], name: str, timestamp: str) -> pd.DataFrame:
+        """Exports the results to time-stamped Excel files and returns the pandas DataFrame for futher use.
+        The order of the columns and header names are defined in models.Analysis
+
+        Args:
+            results (List[Result]): the list of results to be saved.
+            name (str): a string that will be added to the file name (for ex to distuinguish found from not found results).
+            timestamp (str): a timestamp added at the end of the file name.
+
+        Returns:
+           (pd.DataFrame): the DataFrame with the results with columns ordered as during export.
+        """
         analysis = Analysis(results)
 
         dest_path = Path(self.dest_path)
@@ -88,6 +137,13 @@ class Scanner:
         return df
 
     def viz(self, found: pd.DataFrame, not_found: pd.DataFrame):
+        """Generates the charts and plots that summarize the results of the analysis.
+        Plots are automatically saved in /plots with same filename stem as dest_path.
+
+        Args:
+            found (pd.DataFrame): the results for articles successfully found.
+            no_found (pd.DataFrame): the results for the negative results.
+        """
         overview(found, not_found, dest_path)
         citation_distribution(found, self.dest_path)
         journal_distributions(found, self.dest_path)

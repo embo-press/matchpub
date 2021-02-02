@@ -2,16 +2,17 @@ import string
 import re
 import html
 import unicodedata
-from bs4 import BeautifulSoup
 from typing import List, Set
+
+from bs4 import BeautifulSoup
 
 
 def normalize(s: str, do_not_remove: str = '') -> str:
-    """Normalizes a string but setting to lowcase, removing special characters, punctuations and html tags.
+    """Normalizes a string, setting to lower case, removing special characters, punctuations and html tags.
 
     Args:
         s (str): the string to normalize.
-        do_not_remove (List[str]): a list of single characters that should not be removed when punctuation is removed. Useful to keep hyphens or apostrophies
+        do_not_remove (List[str]): a list of single characters that should NOT be removed when punctuation is removed. Useful to keep hyphens or apostrophies
     """
     # https://towardsdatascience.com/nlp-building-text-cleanup-and-preprocessing-pipeline-eba4095245a0
     # strip white space
@@ -63,6 +64,7 @@ def process_authors(authors: List[str]) -> List[List[str]]:
 def split_composed_names(authors: List[str]) -> List[List[str]]:
     """Composed last names, eg 'Villanueva-Meyer', are split and expanded into four alternatives:
     'Villanueva-Meyer' 'Meyer-Villanueva', 'Meyer', 'Villanueva' to maximize chance to retrieve papers.
+    For composed names including very short name, for exampl El-Baradei, the 1 or 2 character long names are dropped as it may generates noise in search results.
 
     Args:
         authors (List[str]): the list of last names
@@ -75,7 +77,7 @@ def split_composed_names(authors: List[str]) -> List[List[str]]:
         alternatives = [last_name]  # original name
         if '-' in last_name:
             sub_names = last_name.split('-')  # split composed name)
-            sub_names = list(filter(lambda name: len(name) > 2, sub_names))  # remove super short subnames like El or A
+            sub_names = list(filter(lambda name: len(name) > 2, sub_names))  # remove super short subnames like El- Al- or A-
             alternatives.extend(sub_names)  # individual names
             if len(sub_names) == 2:
                 alternatives.append('-'.join([sub_names[1], sub_names[0]]))  # invert composed name
@@ -141,6 +143,7 @@ def self_test():
                 else:
                     assert matcher.match(v) is None, f"'{v}' should NOT match a '{decision}'"
     print("Passed decision matcher tests!")
+
 
 if __name__ == "__main__":
     self_test()

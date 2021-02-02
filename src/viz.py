@@ -1,9 +1,10 @@
 from pathlib import Path
 from argparse import ArgumentParser
+
 import pandas as pd
 import plotly.express as px
-from .utils import ed_rej_matcher, post_review_rej_matcher, accept_matcher
 
+from .utils import ed_rej_matcher, post_review_rej_matcher, accept_matcher
 
 # import matplotlib.pyplot as plt
 # matplotlib.use('TkAgg')  # supported values are ['GTK3Agg', 'GTK3Cairo', 'MacOSX', 'nbAgg', 'Qt4Agg', 'Qt4Cairo', 'Qt5Agg', 'Qt5Cairo', 'TkAgg', 'TkCairo', 'WebAgg', 'WX', 'WXAgg', 'WXCairo', 'agg', 'cairo', 'pdf', 'pgf', 'ps', 'svg', 'template']#
@@ -57,6 +58,7 @@ from .utils import ed_rej_matcher, post_review_rej_matcher, accept_matcher
 # turquoise, violet, wheat, white, whitesmoke,
 # yellow, yellowgreen
 
+
 def normalize_decision(analysis: pd.DataFrame):
     rejected_ed = analysis['decision'].apply(lambda x: ed_rej_matcher.match(x) is not None)
     rejected_post = analysis['decision'].apply(lambda x: post_review_rej_matcher.match(x) is not None)
@@ -81,7 +83,6 @@ def citation_distribution(analysis: pd.DataFrame, dest_path: str):
         color="decision",
         template="seaborn",
     )
-    # https://plotly.com/python/styling-plotly-express/
     save_fig(fig, 'cite_distro', dest_path)
 
 
@@ -122,12 +123,12 @@ def journal_distributions(analysis: pd.DataFrame, dest_path: str, max_slices: in
     all_rejections = analysis[(analysis.decision == 'rejected before review') | (analysis.decision == 'rejected after review')]
     grouped = all_rejections.groupby("journal").count()  # journal becomes the index
     df = pd.DataFrame(grouped.reset_index())  # reset_index() will insert back column journal!
-    df.sort_values(by='count', ascending=False, inplace=True)
-    df.reset_index(inplace=True)  # so that loc[] below works as expected
+    df.sort_values(by='count', ascending=False, inplace=True)  # to dispaly nice and to cut at maximum slices
+    df.reset_index(inplace=True)  # so that index follows new sorting order and loc[] below works as expected
     df.loc[max_slices - 1:, 'journal'] = 'other'
     fig1 = px.pie(
         df,
-        values='count',  # maybe simpler to take analysis and use values='journal'
+        values='count',
         names='journal',
         # width=600, height=600,
         color='journal',
@@ -165,7 +166,7 @@ def journal_distributions(analysis: pd.DataFrame, dest_path: str, max_slices: in
     )
     save_fig(fig1, 'journal_distro_pie', dest_path)
     fig2 = px.treemap(
-        analysis,
+        analysis.query("decision == 'rejected before review' | decision == 'rejected after review'"),
         path=['decision', 'journal'],
         values='count',
         color='journal',
@@ -204,6 +205,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     input_path = args.input
     not_found_path = input_path.replace("found", "not_found")
+    print(f"Loading {input_path} and {not_found_path}")
     if input_path:
         found = pd.read_excel(input_path)
         not_found = pd.read_excel(not_found_path)

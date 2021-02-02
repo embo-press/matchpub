@@ -1,6 +1,8 @@
-import requests
 import argparse
 from time import sleep
+
+import requests
+
 from . import logger, SCOPUS, API_KEY
 
 
