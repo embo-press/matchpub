@@ -93,7 +93,7 @@ class Article(Paper):
     Fields:
        doi (str): the DOI of the published paper.
        pmid (str): the PMID identifier in PubMed.
-       pub_type (str): whether a preprint, book, journal article.
+       pub_type (str): whether a preprint, journal article, letter, book
        month (str): the month of publishing.
        year (str): the year of publsishing.
        journal_name (str): the full-length journal title.
@@ -102,10 +102,13 @@ class Article(Paper):
        citations (int): the citation number obtained from Scopus.
        author_overlap_score (float): the degree of overalp of authors with the matching submission.
        title_similarty_score (float): the similarity of the title with the title of the matching submission.
+       preprint_published_doi (str): for preprint only; the doi of the journal paper if already published.
     """
     doi: str = field(default='')
     pmid: str = field(default='')
-    pub_type: str = field(default='')
+    pub_type: List[str] = field(default_factory=list)
+    is_preprint: bool = field(default=None)
+    preprint_published_doi: float = field(default=None)
     year: str = field(default='')
     month: str = field(default='')
     journal_name: str = field(default='')
@@ -119,22 +122,26 @@ class Article(Paper):
     xml: InitVar[Element] = None
 
     def __post_init__(self, xml: Element):
-        self.pmid: str = xml.findtext('./pmid', '')
-        self.pub_type: str = xml.findtext('.//pubType', '').lower()
-        if self.pub_type == 'preprint':
-            self.journal_name: str = xml.findtext('.//publisher', '')
-            self.journal_abbr: str = self.journal_name
+        self.pmid = xml.findtext('./pmid', '')
+        self.pub_type = [t.text.lower() for t in xml.findall('.//pubTypeList/pubType', [])]
+        # might be better to use  <source>PPR</source
+        # if 'preprint' in self.pub_type:
+        if xml.findtext('./source') == "PPR":
+            self.journal_name = xml.findtext('.//publisher', '')
+            self.journal_abbr = self.journal_name
+            self.is_preprint = True
         else:
-            self.journal_name: str = xml.findtext('./journalInfo/journal/title', '')
-            self.journal_abbr: str = xml.findtext('./journalInfo/journal/medlineAbbreviation', '')
-        self.year: str = xml.findtext('./journalInfo/yearOfPublication', '')
-        self.month: str = xml.findtext('./journalInfo/monthOfPublication', '')
-        self.doi: str = xml.findtext('./doi', '')
-        self.abstract: str = xml.findtext('./abstractText', '')
+            self.journal_name = xml.findtext('./journalInfo/journal/title', '')
+            self.journal_abbr = xml.findtext('./journalInfo/journal/medlineAbbreviation', '')
+            self.is_preprint = False
+        self.year = xml.findtext('./journalInfo/yearOfPublication', '')
+        self.month = xml.findtext('./journalInfo/monthOfPublication', '')
+        self.doi = xml.findtext('./doi', '')
+        self.abstract = xml.findtext('./abstractText', '')
 
-        self.title: str = xml.findtext('./title', '')
-        self.author_list: List[str] = [au.text for au in xml.findall('./authorList/author/lastName')]
-        self.expanded_author_list: List[List[str]] = process_authors(self.author_list)
+        self.title = xml.findtext('./title', '')
+        self.author_list = [au.text for au in xml.findall('./authorList/author/lastName')]
+        self.expanded_author_list = process_authors(self.author_list)
 
     def __str__(self):
         authors = ", ".join(self.author_list)
@@ -218,9 +225,12 @@ class Analysis(UserList):
             ('article.strategy', 'retrieval_strategy'),
             ('article.title_similarity_score', 'title_score'),
             ('article.author_overlap_score', 'author_score'),
+            ('article.pub_type', 'publication_type'),
+            ('article.preprint_published_doi', 'preprint_published_doi'),
+            ('article.is_preprint', 'is_preprint')
         ]
     ):
-        self.data = [ResultDict(r) for r in results]
+        self.data = [ResultDict(r, field_label_map) for r in results]
         if results:
             self.cols = self.data[0] if results else []
         else:

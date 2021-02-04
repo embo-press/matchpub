@@ -4,8 +4,7 @@ import os
 from pathlib import Path
 
 load_dotenv()
-SCOPUS = os.getenv('SCOPUS')
-API_KEY = os.getenv('API_KEY')
+SCOPUS_API_KEY = os.getenv('SCOPUS_API_KEY')
 
 logger = logging.getLogger('matchpub logger')
 logger.setLevel(logging.DEBUG)

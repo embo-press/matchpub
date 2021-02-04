@@ -3,8 +3,10 @@ from argparse import ArgumentParser
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 from .utils import ed_rej_matcher, post_review_rej_matcher, accept_matcher
+from . import logger
 
 # import matplotlib.pyplot as plt
 # matplotlib.use('TkAgg')  # supported values are ['GTK3Agg', 'GTK3Cairo', 'MacOSX', 'nbAgg', 'Qt4Agg', 'Qt4Cairo', 'Qt5Agg', 'Qt5Cairo', 'TkAgg', 'TkCairo', 'WebAgg', 'WX', 'WXAgg', 'WXCairo', 'agg', 'cairo', 'pdf', 'pgf', 'ps', 'svg', 'template']#
@@ -83,7 +85,7 @@ def citation_distribution(analysis: pd.DataFrame, dest_path: str):
         color="decision",
         template="seaborn",
     )
-    save_fig(fig, 'cite_distro', dest_path)
+    save_img(fig, 'cite_distro', dest_path)
 
 
 def overview(found: pd.DataFrame, not_found, dest_path: str):
@@ -109,11 +111,17 @@ def overview(found: pd.DataFrame, not_found, dest_path: str):
             color="white"
         )
     )
+    fig1.add_annotation(
+        text=f"{len(found)} articles found from {len(overview)} total submissions",
+        xref="paper", yref="paper", xanchor='left', yanchor='top',
+        x=0, y=0,
+        showarrow=False,
+    )
     fig1.update_layout(
         title="Analysis overview",
         title_font_size=14,
     )
-    save_fig(fig1, 'analysis_overview', dest_path)
+    save_img(fig1, 'analysis_overview', dest_path)
 
 
 def journal_distributions(analysis: pd.DataFrame, dest_path: str, max_slices: int = 21):
@@ -132,13 +140,11 @@ def journal_distributions(analysis: pd.DataFrame, dest_path: str, max_slices: in
         names='journal',
         # width=600, height=600,
         color='journal',
-        # color_discrete_sequence=px.colors.sequential.Viridis,
         color_discrete_sequence=px.colors.qualitative.Prism
-        # color_discrete_sequence=px.colors.sequential.Aggrnyl
     )
     fig1.update_traces(
         textposition='outside',
-        textinfo='label',
+        textinfo='label+value',
         textfont_size=8,
         marker=dict(
             line=dict(
@@ -151,45 +157,100 @@ def journal_distributions(analysis: pd.DataFrame, dest_path: str, max_slices: in
         title='Fate of rejected manuscripts',
         title_font_size=14,
         showlegend=False,
-        # uniformtext_minsize=8, uniformtext_mode='hide',
-        # legend=dict(
-        #     yanchor="top",
-        #     y=0,
-        #     xanchor="right",
-        #     x=0,
-        #     font=dict(
-        #         family="Arial",
-        #         size=5,
-        #         color="black"
-        #     )
-        # )
     )
-    save_fig(fig1, 'journal_distro_pie', dest_path)
-    fig2 = px.treemap(
-        analysis.query("decision == 'rejected before review' | decision == 'rejected after review'"),
-        path=['decision', 'journal'],
-        values='count',
-        color='journal',
-        color_discrete_sequence=px.colors.qualitative.Antique,
-    )
-    fig2.update_traces(
-        marker=dict(
-            line=dict(
-                width=1,
-                color='White'
+    save_img(fig1, 'journal_distro_pie', dest_path)
+
+    if len(all_rejections) > 0:
+        fig2 = px.treemap(
+            all_rejections,
+            path=['decision', 'journal'],
+            values='count',
+            color='journal',
+            color_discrete_sequence=px.colors.qualitative.Antique,
+        )
+        fig2.update_traces(
+            marker=dict(
+                line=dict(
+                    width=1,
+                    color='White'
+                )
             )
         )
-    )
-    fig2.update_layout(
-        title='Fate of manuscripts by decision type.',
-        title_font_size=14,
-    )
-    save_fig(fig2, 'journal_distro_tree', dest_path)
+        fig2.update_layout(
+            title='Fate of manuscripts by decision type.',
+            title_font_size=14,
+        )
+        save_img(fig2, 'journal_distro_tree', dest_path)
+    else:
+        logger.info(f"no tree map for all rejections (len {len(all_rejections)})")
 
 
-def save_fig(fig, name: str, dest_path: str):
+def preprints(analysis: pd.DataFrame, dest_path: str):
+    normalize_decision(analysis)
+    preprints = analysis[analysis.is_preprint].copy()
+    preprints["count"] = 1
+    preprints["published"] = "not yet published"
+    preprints.loc[preprints["preprint_published_doi"].notnull(), "published"] = "published"
+    if len(preprints) > 0:
+        fig1 = px.treemap(
+            preprints,
+            path=["published", "decision"],
+            values="count",
+            color="decision",
+            # color_discrete_sequence=px.colors.qualitative.G10,
+            color_discrete_map={
+                "(?)": "brown",
+                "accepted": "red",
+                "rejected before review": "grey",
+                "rejected after review": "grey"
+            }
+        )
+        fig1.update_layout(
+            title="Publication status of preprints matching the journal submissions.",
+            title_font_size=14
+        )
+        fig1.update_traces(
+            marker={
+                "line": {
+                    "width": 1,
+                    "color": "White"
+                }
+            }
+        )
+        save_img(fig1, 'preprints_by_decision', dest_path)
+    else:
+        logger.info(f"no preprints!")
+
+
+def unlinked_preprints(analysis: pd.DataFrame, dest_path: str):
+    normalize_decision(analysis)
+    accepted = analysis[analysis['decision'] == 'accepted'].copy()
+    accepted["preprint_published"] = False
+    accepted.loc[accepted["preprint_published_doi"].notnull(), "preprint_published"] = True
+    accepted["warning"] = "OK"
+    accepted.loc[(accepted.is_preprint) & (~accepted.preprint_published), ["warning"]] = "UNLINKED?"
+    cols = [
+        "manuscript_nm",
+        "journal",
+        "doi",
+        "retrieved_title",
+        "original_title",
+        "decision",
+        "retrieved_abstract",
+        "preprint_published",
+        "preprint_published_doi",
+        "warning"
+    ]
+    accepted.sort_values(by='original_title', ascending=False, inplace=True)
     dest_path = Path(dest_path)
-    path = Path('/plots') / f"{dest_path.stem}-{name}.pdf"
+    dest_path = Path('/reports') / f"{dest_path.stem}-unlinked_preprints.xlsx"
+    with pd.ExcelWriter(dest_path) as writer:
+        accepted[cols].to_excel(writer)
+
+
+def save_img(fig, name: str, dest_path: str):
+    dest_path = Path(dest_path)
+    path = Path('/reports') / f"{dest_path.stem}-{name}.pdf"
     fig.write_image(str(path))
 
 
@@ -209,6 +270,8 @@ if __name__ == "__main__":
     if input_path:
         found = pd.read_excel(input_path)
         not_found = pd.read_excel(not_found_path)
+        preprints(found, input_path)
+        unlinked_preprints(found, input_path)
         citation_distribution(found, input_path)
         journal_distributions(found, input_path)
         overview(found, not_found, input_path)

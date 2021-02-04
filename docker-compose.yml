@@ -13,9 +13,10 @@ services:
     - ./.env
     volumes:
     - ./src:/app/src
+    - ./test:/app/test
     - ./data:/data
     - ./results:/results
-    - ./plots:/plots
+    - ./reports:/reports
     - ./log:/log
     - /tmp/.X11-unix:/tmp/.X11-unix
     - /tmp:/tmp

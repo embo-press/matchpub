@@ -1,19 +1,23 @@
 
 import logging
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 from datetime import datetime
 from argparse import ArgumentParser
 
 from tqdm import tqdm
 import pandas as pd
 
+from .config import PreprintInclusion, config
 from .models import Submission, Result, Analysis
-from .search import PMCService
+from .search import EuropePMCEngine
 from .ejp import EJPReport
 from .match import match_by_author, match_by_title
-from .scopus import citedby_count
-from .viz import overview, citation_distribution, journal_distributions
+from .net import BioRxivService, ScopusService
+from .reports import (
+    overview, citation_distribution, journal_distributions,
+    preprints, unlinked_preprints
+)
 from . import logger
 
 
@@ -29,10 +33,23 @@ class Scanner:
         engine (PMCService): the search engine used to retrieve published papers.
     """
 
-    def __init__(self, ejp_report: EJPReport, dest_path: str, engine: PMCService = PMCService()):
+    def __init__(
+        self,
+        ejp_report: EJPReport,
+        dest_path: str,
+        SearchEngine: Callable,
+        CitationEngine: Callable,
+        preprint_inclusion: PreprintInclusion,
+        include_citations: bool
+    ):
         self.ejp_report = ejp_report
         self.dest_path = dest_path
-        self.engine = engine
+        self.search_engine = SearchEngine(preprint_inclusion=preprint_inclusion)
+        self.citation_engine = CitationEngine()
+        self.biorxiv_service = BioRxivService()
+        self.preprint_inclusion = preprint_inclusion
+        self.include_preprints = self.preprint_inclusion in [PreprintInclusion.ONLY_PREPRINT, PreprintInclusion.WITH_PREPRINT]
+        self.include_citations = include_citations
 
     def run(self):
         """Retrieves the best matching published papers corresponding to the submissions of interest, adds citation data, 
@@ -41,13 +58,17 @@ class Scanner:
         N = len(self.ejp_report.articles)
         logger.info(f"scanning {N} submissions {self.ejp_report.metadata['time_window']}.")
         found, not_found = self.retrieve(self.ejp_report.articles)
-        self.add_citations(found)
-        self.add_citations(not_found)
+        if self.include_citations:
+            self.add_citations(found)
+            self.add_citations(not_found)
+        if self.include_preprints:
+            self.update_preprint_status(found)
+        found = self.filter_preprints(found)
         timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"exporting results with timestamp {timestamp}")
         df_found = self.export(found, 'found', timestamp)
         df_not_found = self.export(not_found, 'not_found', timestamp)
-        self.viz(df_found, df_not_found)
+        self.reporting(df_found, df_not_found)
 
     def retrieve(self, submissions: List[Submission]) -> Tuple[List[Result], List[Result]]:
         """Loops through a list of submissions and accumulates articles found and not found in PubMed Central.
@@ -71,20 +92,20 @@ class Scanner:
         logger.info(f"found {len(found)} / {len(submissions)} results.")
         return found, not_found
 
-    def search(self, submission: Submission) -> Result:
+    def search(self, submission: Submission) -> Tuple[Result, bool]:
         """Performs the dual seach to find a published article best matching the submission.
 
         Args:
             submission (Submission): the submission used as query for the search.
 
-        Returns: 
+        Returns:
             (Result): the result of the search, keeping hold of the Submission and the found Article if any.
             (bool): whether a good match was successfully found.
         """
         title = submission.title
         authors = submission.expanded_author_list
         logger.debug(f"Looking for {submission.title} by {submission.author_list}.")
-        search_res = self.engine.search_by_author(authors)
+        search_res = self.search_engine.search_by_author(authors)
         match = None
         if search_res:
             match, success = match_by_title(search_res, authors, title)
@@ -92,16 +113,17 @@ class Scanner:
         else:
             success = False
         if not success:
-            search_res = self.engine.search_by_title(title)
+            search_res = self.search_engine.search_by_title(title)
             if search_res:
                 match, success = match_by_author(search_res, authors, title)
                 match.strategy = 'search_by_title_match_by_author'
             else:
                 success = False
-        return Result(submission, match), success
+        result = Result(submission, match)
+        return result, success
 
     def add_citations(self, results: List[Result]):
-        """Retrieves citation data and updates Result.article.
+        """Retrieves citation data and updates in place result.article.
 
         Args:
             (List[Result]): the list of results to update with citation data.
@@ -109,7 +131,40 @@ class Scanner:
         logger.info(f"fetching {len(results)} scopus citations.")
         for r in tqdm(results):
             if r.article is not None:
-                r.article.citations = citedby_count(r.article.pmid)
+                r.article.citations = self.citation_engine.citedby_count(r.article.pmid)
+
+    def update_preprint_status(self, results: List[Result]):
+        """If a preprint was retrieved, check its publication status and add in place the doi of the published paper.
+
+        Args:
+            results (List[Result]): list of results to update
+        """
+        logger.info("Updating publication status of preprints.")
+        for result in tqdm(results):
+            if result.article.is_preprint:
+                published_doi = self.biorxiv_service.preprint_publication_status(result.article.doi)
+                result.article.preprint_published_doi = published_doi
+                logger.debug(f"article '{result.article.doi}' is a preprint. Published doi: '{result.article.preprint_published_doi}'.")
+
+    def filter_preprints(self, results: List[Result]) -> List[Result]:
+        """Loops through the results to keep preprints or not depending on the preprint_inclusion setting.
+
+        Args:
+            results (List[Result]): list of results to filter.
+
+        Returns:
+            (List[Result]): filtered list of results.
+        """
+        if self.preprint_inclusion == PreprintInclusion.NO_PREPRINT:
+            filtered = [r for r in results if not r.article.is_preprint]
+        elif self.preprint_inclusion == PreprintInclusion.ONLY_PREPRINT:
+            filtered = [r for r in results if r.article.is_preprint]
+        elif self.preprint_inclusion == PreprintInclusion.WITH_PREPRINT:
+            filtered = results
+        else:
+            raise ValueError(f"not a valid preprint_inclusion member: {self.preprint_inclusion}")
+        logger.info(f"Filtered {len(results) - len(filtered)} out of {len(results)}.")
+        return filtered
 
     def export(self, results: List[Result], name: str, timestamp: str) -> pd.DataFrame:
         """Exports the results to time-stamped Excel files and returns the pandas DataFrame for futher use.
@@ -123,35 +178,44 @@ class Scanner:
         Returns:
            (pd.DataFrame): the DataFrame with the results with columns ordered as during export.
         """
-        analysis = Analysis(results)
 
-        dest_path = Path(self.dest_path)
-        dest_path = dest_path.parent / f"{dest_path.stem}-{name}-{timestamp}.xlsx"
+        if results:
+            analysis = Analysis(results)
+            dest_path = Path(self.dest_path)
+            dest_path = dest_path.parent / f"{dest_path.stem}-{name}-{timestamp}.xlsx"
 
-        df = pd.DataFrame(analysis)
-        df = df.sort_values(by='citations', ascending=False)
-        with pd.ExcelWriter(dest_path) as writer:
-            df[analysis.cols].to_excel(writer)
-        logger.info(f"results {name} saved to {dest_path}")
-
+            df = pd.DataFrame(analysis)
+            df = df.sort_values(by='citations', ascending=False)
+            with pd.ExcelWriter(dest_path) as writer:
+                try:
+                    df[analysis.cols].to_excel(writer, encoding='utf-8')
+                except Exception as e:
+                    logger.error(f"error ({e}) when exporting {name} to Excel file {dest_path}")
+            logger.info(f"results {name} saved to {dest_path}")
+        else:
+            logger.info(f"no results to be saved for {name} to {dest_path}.")
         return df
 
-    def viz(self, found: pd.DataFrame, not_found: pd.DataFrame):
-        """Generates the charts and plots that summarize the results of the analysis.
-        Plots are automatically saved in /plots with same filename stem as dest_path.
+    def reporting(self, found: pd.DataFrame, not_found: pd.DataFrame):
+        """Generates the charts and reports that summarize the results of the analysis.
+        Plots and reports are automatically saved in /reports with same filename stem as dest_path.
 
         Args:
             found (pd.DataFrame): the results for articles successfully found.
             no_found (pd.DataFrame): the results for the negative results.
         """
         overview(found, not_found, dest_path)
-        citation_distribution(found, self.dest_path)
+        if self.include_citations:
+            citation_distribution(found, self.dest_path)
         journal_distributions(found, self.dest_path)
+        if self.include_preprints:
+            preprints(found, dest_path)
+            unlinked_preprints(found, dest_path)
 
 
 def self_test():
     ejp_report = EJPReport('/data/test_file.xls')
-    scanner = Scanner(ejp_report, '/results/test_results.xlsx')
+    scanner = Scanner(ejp_report, '/results/test_results.xlsx', EuropePMCEngine, ScopusService, config.preprint_inclusion)
     scanner.run()
 
 
@@ -160,8 +224,10 @@ if __name__ == "__main__":
     parser.add_argument("report", nargs="?", help="Path to the report with the list of submissions.")
     parser.add_argument("dest", nargs="?", default="results/results.xlsx", help="Path to results file.")
     parser.add_argument("-D", "--debug", action="store_true", help="Debug mode.")
+    parser.add_argument("--no_citations", action="store_true", help="Flag to prevent queries to citation data.")
     args = parser.parse_args()
     debug = args.debug
+    include_citations = config.include_citations and not args.no_citations
     if debug:
         logger.setLevel(logging.DEBUG)
     else:
@@ -170,7 +236,16 @@ if __name__ == "__main__":
     dest_path = args.dest
     if report_path:
         ejp_report = EJPReport(report_path)
-        scanner = Scanner(ejp_report, dest_path)
+        logger.info(f"Analysis of {len(ejp_report)} submissions with settings: include_citations: {include_citations}, preprint_inclusion: {config.preprint_inclusion}.")
+        logger.info(f"Results will be saved in {dest_path}.")
+        scanner = Scanner(
+            ejp_report,
+            dest_path,
+            EuropePMCEngine,
+            ScopusService,
+            config.preprint_inclusion,
+            include_citations
+        )
         scanner.run()
     else:
         self_test()

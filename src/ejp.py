@@ -125,6 +125,9 @@ class EJPReport:
     def __str__(self):
         return str(self.data)
 
+    def __len__(self):
+        return len(self.articles)
+
 
 def self_test():
     ejp_report = EJPReport('/data/msb_test_100.xls')

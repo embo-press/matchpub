@@ -7,33 +7,64 @@ from typing import List, Set
 from bs4 import BeautifulSoup
 
 
-def normalize(s: str, do_not_remove: str = '') -> str:
-    """Normalizes a string, setting to lower case, removing special characters, punctuations and html tags.
+def normalize(
+    s: str,
+    do_not_remove: str = '',
+    do: List[str] = [
+        'ctrl', 'strip', 'lower', 'html_unescape', 'html_tags',
+        'punctuation', 'unicode'
+    ]
+) -> str:
+    """Normalizes a string, setting to remove control characters, set to lower case, removing special characters, punctuations and html tags.
 
     Args:
         s (str): the string to normalize.
         do_not_remove (List[str]): a list of single characters that should NOT be removed when punctuation is removed. Useful to keep hyphens or apostrophies
+        do (List[str]): the list of cleanup steps to do from 'ctrl', 'strip', 'lower', 'html_unescape', 'html_tags', 'punctuation', 'unicode'
     """
+    def remove_control_characters(s: str, excluded: List[str] = ["Cc", "Cf"]) -> str:
+        # https://stackoverflow.com/questions/4324790/removing-control-characters-from-a-string-in-python
+        clean = "".join([ch for ch in s if unicodedata.category(ch) not in excluded])
+        return clean
+
     # https://towardsdatascience.com/nlp-building-text-cleanup-and-preprocessing-pipeline-eba4095245a0
+    # remove control characters
+    if 'ctrl' in do:
+        s = remove_control_characters(s)
     # strip white space
-    s = s.strip()
+    if 'strip' in do:
+        s = s.strip()
     # lower case
-    s = s.lower()
+    if 'lower' in do:
+        s = s.lower()
     # remove html entities
-    s = html.unescape(s)
+    if 'html_unescape' in do:
+        s = html.unescape(s)
     # remove html tags, <i> or <sup> are not rare in titles
-    s = BeautifulSoup(s, 'html.parser').get_text()
+    if 'html_tags' in do:
+        s = BeautifulSoup(s, 'html.parser').get_text()
     # remove punctuation
-    punctuation = string.punctuation
-    for c in do_not_remove:
-        punctuation = punctuation.replace(c, '')
-    s = re.sub(f"[{punctuation}]", " ", s)  # Note: hyphens are NOT removed
+    if 'punctuation' in do:
+        punctuation = string.punctuation
+        for c in do_not_remove:
+            punctuation = punctuation.replace(c, ' ')
+        s = re.sub(f"[{punctuation}]", " ", s)
+        s = re.sub(r" +", " ", s)  # remove runs of spaces if any
     # remove accents, non breaking spaces, en-dash, em-dash, minus, special characters,
-    s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('utf-8', 'ignore')
+    if 'unicode' in do:
+        s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('utf-8', 'ignore')
     return s
 
 
 def last_name(name: str) -> str:
+    """Extracts the last name from a <first names last name> string. Includes particles such as von, del, saint, mac, ...
+
+    Args:
+        name (str): a string with first names last names in this order.
+
+    Returns:
+        (str): the last name including its particle
+    """
     match = re.search(r"((?<= )|(?<=^))(mc |mac |van ?der |van ?den |van |van't |von ?der |von |de |de la |del |della |dell'|st |saint |t'|n')?\S+$", name)
     try:
         last_name = match.group(0)
@@ -45,18 +76,17 @@ def last_name(name: str) -> str:
 def process_authors(authors: List[str]) -> List[List[str]]:
     """The list of author last names is processed to remove special chacaters and deal with composed names and names with particles.
     Composed names are expanded into a list of alternatives.
-
     Args:
         authors (List[str]): the list of author last names.
 
     Returns:
         (List[List[str]]): a list of possible alternatives for each cleaned up last name.
     """
-    authors = [normalize(au, do_not_remove="-'") for au in authors]  # tremove punctuation exluing hyphens
+    authors = [normalize(au, do_not_remove="-'") for au in authors]  # tremove punctuation exluing hyphens; beneficial
     # authors = [re.sub(r"^(van der |vander |van den |vanden |van |von |de |de la |del |della |dell' |st |saint )", r'', au) for au in authors]
     # authors = [re.sub(r"^(mac|mc) ", r"\1", au) for au in authors]  # mc intosh mc mahon
     authors = set(authors)  # unique normalized names
-    authors = split_composed_names(authors)  # needs to be done first since hyphens would be removed by normalization
+    authors = split_composed_names(authors)  # this is beneficial on recall on positives
     # generates alternatives with mc mac
     return authors
 
@@ -107,43 +137,3 @@ post_review_rej_matcher = re.compile(
     re.IGNORECASE
 )
 accept_matcher = re.compile(r"accept", re.IGNORECASE)
-
-
-def self_test():
-    decisions = {
-        "accepted": ["accept"],
-        "rejected before review": [
-            "reject and refer"
-            "reject before review"
-            "reject before review advisory editorial board",
-            "reject with board advice & refer",
-            "editorial rejection",
-            "editorial rejection (EBA)",
-        ],
-        "rejected after review": [
-            "reject post review",
-            "reject post review - 2 reviewer",
-            "reject post review (invite resubmission)",
-            "Revise and Re-Review - Border Line Reject",
-            "reject post review & refer",
-            "rejection",
-            "reject"
-        ]
-    }
-    matchers = {
-        "accepted": accept_matcher,
-        "rejected before review": ed_rej_matcher,
-        "rejected after review": post_review_rej_matcher
-    }
-    for decision, variations in decisions.items():
-        for v in variations:
-            for dec, matcher in matchers.items():
-                if dec == decision:
-                    assert matcher.match(v) is not None, f"'{v}' is not matched as a '{decision}'"
-                else:
-                    assert matcher.match(v) is None, f"'{v}' should NOT match a '{decision}'"
-    print("Passed decision matcher tests!")
-
-
-if __name__ == "__main__":
-    self_test()
