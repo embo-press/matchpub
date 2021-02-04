@@ -8,7 +8,7 @@ Content of published papers is retrieved from EuropePMC.
 
 Citations data are obtained from Scopus.
 
-# To install the application:
+## To install the application:
 
 Clone this repository.
 
@@ -22,7 +22,10 @@ Build the application:
 
 Download the eJP report into the `data/` directory.
 
-Run:
+
+## Run a scan
+
+Start the app and inititates a scan. It can be convenient to do this from a tmux session:
 
     docker-compose run --rm matchpub
     python -m src.scan /data/to/ejp_report.xls> /results/to/result/> # use -D to prevent inclusion of citation data..
