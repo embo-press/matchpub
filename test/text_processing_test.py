@@ -9,7 +9,7 @@ class TestNormalize(unittest.TestCase):
 
     def test_unicode(self):
         x = [
-            "YOU ARE DEAD1",  # chr(8)
+            chr(8) + "YOU ARE DEAD1",  # chr(8) is backspace
             "☠️YOU ARE DEAD2",
         ]
         y = [normalize(e, do=['ctrl', 'unicode']) for e in x]
