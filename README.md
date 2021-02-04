@@ -1,6 +1,6 @@
-Matchpub scans the literature to retrieve papers that were handled by a journal and analyze their fate (where they were published) and citation distribution as a function of the editorial decision made by the journal (accept, reject, ...).
+Matchpub2 scans the literature to retrieve papers that were handled by a journal and analyze their fate (where they were published) and citation distribution as a function of the editorial decision made by the journal (accept, reject, ...).
 
-As input, MatchPub ingests the eJP report entitled "Editor Track Record Report" in Excel .xls format.
+As input, MatchPub2 ingests the eJP report entitled "Editor Track Record Report" in Excel .xls format.
 
 Content of published papers is retrieved from EuropePMC.
 
@@ -8,7 +8,9 @@ Citations data are obtained from Scopus.
 
 Clone the repository.
 
-Before building the application, install docker and docker-compose (https://www.docker.com/get-started).
+Update `.env.example` with your user id (`id -u`) and group id (`id -g`) and Scopus API_Key (register at https://dev.elsevier.com/) and save under `.env`
+
+Install `docker` and `docker-compose` (https://www.docker.com/get-started).
 
 Build the application:
 
@@ -19,6 +21,9 @@ Download the eJP report into the `data/` directory.
 Run:
 
     docker-compose run --rm matchpub
-    python -m src.scan /data/to/ejp_report.xls> /results/to/result/>
+    python -m src.scan /data/to/ejp_report.xls> /results/to/result/> # use -D to prevent inclusion of citation data..
 
-In addition to the specified `<result>.xlsx` file, MatchPub will save a `<result>-not-found.xlsx> file` with the list of papers that could not be matched.
+In addition to the specified `<result>.xlsx` file, MatchPub will save a `<result>-not-found.xlsx> file` with the list of papers that could not be matched. Graphical reports will be saved in `/reports`.
+
+Some settings can be changed in `src/config.py`. To scan only preprints, set Config.preprint_inclusion to `PreprintInclusion.ONLY_PREPRINT`. 
+To avoid the inclusion of citation data, set `Config.include_citations` to `False` or invoke the src.scan with the `-D` option.
