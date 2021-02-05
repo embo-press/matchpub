@@ -127,13 +127,3 @@ def flat_unique_set(x: List[List[str]]) -> Set[str]:
     flattened = [element for alt in x for element in alt]
     return set(flattened)
 
-
-ed_rej_matcher = re.compile(
-    r"(reject before.*)|(reject and refer.*)|(reject with.*)|(editorial rej.*)",
-    re.IGNORECASE
-)
-post_review_rej_matcher = re.compile(
-    r"(reject post.*)|(rejection$)|(reject$)|(.*border line reject)",
-    re.IGNORECASE
-)
-accept_matcher = re.compile(r"accept", re.IGNORECASE)

@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from .utils import ed_rej_matcher, post_review_rej_matcher, accept_matcher
+from .decision import decision_matching_regex
 from . import logger
 
 # import matplotlib.pyplot as plt
@@ -62,9 +62,9 @@ from . import logger
 
 
 def normalize_decision(analysis: pd.DataFrame):
-    rejected_ed = analysis['decision'].apply(lambda x: ed_rej_matcher.match(x) is not None)
-    rejected_post = analysis['decision'].apply(lambda x: post_review_rej_matcher.match(x) is not None)
-    accepted = analysis['decision'].apply(lambda x: accept_matcher.match(x) is not None)
+    rejected_ed = analysis['decision'].apply(lambda x: decision_matching_regex['rejected before review'].match(x) is not None)
+    rejected_post = analysis['decision'].apply(lambda x: decision_matching_regex['rejected after review'].match(x) is not None)
+    accepted = analysis['decision'].apply(lambda x: decision_matching_regex['accepted'].match(x) is not None)
     analysis.loc[rejected_ed, 'decision'] = 'rejected before review'
     analysis.loc[rejected_post, 'decision'] = 'rejected after review'
     analysis.loc[accepted, 'decision'] = 'accepted'

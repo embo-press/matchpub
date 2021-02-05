@@ -5,7 +5,7 @@ from enum import Enum, unique
 
 @unique
 class PreprintInclusion(Enum):
-    """The elvel of inclusion/exclusion of preprints when searching the literature.
+    """The level of inclusion/exclusion of preprints when searching the literature.
 
     Attributes:
         NO_PREPRINT: search and search results will exclude preprints.
