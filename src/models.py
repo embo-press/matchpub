@@ -7,7 +7,7 @@ import re
 from lxml.etree import Element
 import pandas as pd
 
-from .utils import process_authors, last_name
+from .utils import process_authors, last_name, normalize
 
 
 @dataclass
@@ -48,7 +48,7 @@ class Submission(Paper):
         self.editor: str = row['editor']
         self.decision: str = row['decision']
 
-        self.title: str = row['title']
+        self.title: str = normalize(row['title'], do=['ctrl'])  # remove control characters that are invariably toxic
         self.author_list: List[str] = self.split_author_list(row['authors'])
         self.expanded_author_list: List[List[str]] = process_authors(self.author_list)
 
