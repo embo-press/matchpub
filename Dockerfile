@@ -19,6 +19,7 @@ RUN pip install plotly
 RUN pip install matplotlib
 RUN pip install kaleido
 RUN pip install python-dotenv
+RUN pip install IMAPClient==2.2.0
 
 ARG user_id
 ARG group_id
