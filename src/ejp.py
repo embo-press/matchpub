@@ -15,7 +15,22 @@ class Metadata(UserDict):
 
 
 class EJPReport:
+    """The representation of the EJP report 'Editor Track Report'.
+    The report is expected to start with a series of rows that include metadata about the report.
+    The expected order of the metadata rows is given in the argument metadata_keys.
+    Metadata rows should be strings, with no particular format except for the only mandatory row:'time_window".
+    The time_window row should include a statement of the form 'between <date> and <date>' (the format of the date will be guessed).
+    After the metadata row, the start of the actual data tabel will be search automatically by screening for a header row.
+    The headers should all match the regex provided in header_signature.
+    At the minimum, columns should be provided to specify 'manuscript_nm', 'editor', 'decision', 'title', 'authors' for each submission.
+    The position index of these columns is provided in feature_index.
 
+    Args:
+        filepath (str): the path to the report excel file.
+        metadata_keys (List[str]): the ordered list of metadata fields to be captured from the initial rows in the table.
+        header_signature (List[str]): a list of regex that will be used to identify the header row.
+        feature_index (Dict[str, int]): map the required feature ('manuscript_nm', 'editor', 'decision', 'title', 'authors') to column index (zero indexed) in the table.
+    """
     def __init__(
         self,
         filepath: str,
