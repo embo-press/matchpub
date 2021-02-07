@@ -18,7 +18,7 @@ from .reports import (
     overview, citation_distribution, journal_distributions,
     preprints, unlinked_preprints
 )
-from . import logger
+from . import logger, RESULTS
 
 
 class Scanner:
@@ -36,14 +36,14 @@ class Scanner:
     def __init__(
         self,
         ejp_report: EJPReport,
-        dest_path: str,
-        SearchEngine: Callable,
-        CitationEngine: Callable,
-        preprint_inclusion: PreprintInclusion,
-        include_citations: bool
+        dest_basename: str,
+        SearchEngine: Callable = EuropePMCEngine,
+        CitationEngine: Callable = ScopusService,
+        preprint_inclusion: PreprintInclusion = config.preprint_inclusion,
+        include_citations: bool = config.include_citations
     ):
         self.ejp_report = ejp_report
-        self.dest_path = dest_path
+        self.dest_basename = dest_basename
         self.search_engine = SearchEngine(preprint_inclusion=preprint_inclusion)
         self.citation_engine = CitationEngine()
         self.biorxiv_service = BioRxivService()
@@ -51,7 +51,7 @@ class Scanner:
         self.include_preprints = self.preprint_inclusion in [PreprintInclusion.ONLY_PREPRINT, PreprintInclusion.WITH_PREPRINT]
         self.include_citations = include_citations
 
-    def run(self):
+    def run(self) -> List[Path]:
         """Retrieves the best matching published papers corresponding to the submissions of interest, adds citation data, 
         exports the results to time-stamped Excel files and generate summary visualization.
         """
@@ -66,9 +66,10 @@ class Scanner:
         found = self.filter_preprints(found)
         timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"exporting results with timestamp {timestamp}")
-        df_found = self.export(found, 'found', timestamp)
-        df_not_found = self.export(not_found, 'not_found', timestamp)
-        self.reporting(df_found, df_not_found)
+        df_found, found_path = self.export(found, 'found', timestamp)
+        df_not_found, not_found_path = self.export(not_found, 'not_found', timestamp)
+        report_paths = self.reporting(df_found, df_not_found)
+        return [found_path, not_found_path] + report_paths
 
     def retrieve(self, submissions: List[Submission]) -> Tuple[List[Result], List[Result]]:
         """Loops through a list of submissions and accumulates articles found and not found in PubMed Central.
@@ -166,7 +167,7 @@ class Scanner:
         logger.info(f"Filtered {len(results) - len(filtered)} out of {len(results)}.")
         return filtered
 
-    def export(self, results: List[Result], name: str, timestamp: str) -> pd.DataFrame:
+    def export(self, results: List[Result], name: str, timestamp: str) -> Tuple[pd.DataFrame, Path]:
         """Exports the results to time-stamped Excel files and returns the pandas DataFrame for futher use.
         The order of the columns and header names are defined in models.Analysis
 
@@ -177,12 +178,12 @@ class Scanner:
 
         Returns:
            (pd.DataFrame): the DataFrame with the results with columns ordered as during export.
+           (Path): the path to the saved excel file.
         """
 
         if results:
             analysis = Analysis(results)
-            dest_path = Path(self.dest_path)
-            dest_path = dest_path.parent / f"{dest_path.stem}-{name}-{timestamp}.xlsx"
+            dest_path = Path(RESULTS) / f"{self.dest_basename}-{name}-{timestamp}.xlsx" # change this to Path(RESULTS) / f"{dest_basename}-{name}-{timestamp}.xlsx"
 
             df = pd.DataFrame(analysis)
             df = df.sort_values(by='citations', ascending=False)
@@ -190,27 +191,38 @@ class Scanner:
                 try:
                     df[analysis.cols].to_excel(writer, encoding='utf-8')
                 except Exception as e:
-                    logger.error(f"error ({e}) when exporting {name} to Excel file {dest_path}")
+                    import pdb; pdb.set_trace()
+                    logger.error(f"error ({str(e)}) when exporting {name} to Excel file {dest_path}")
             logger.info(f"results {name} saved to {dest_path}")
         else:
             logger.info(f"no results to be saved for {name} to {dest_path}.")
-        return df
+        return df, dest_path
 
-    def reporting(self, found: pd.DataFrame, not_found: pd.DataFrame):
+    def reporting(self, found: pd.DataFrame, not_found: pd.DataFrame) -> List[Path]:
         """Generates the charts and reports that summarize the results of the analysis.
-        Plots and reports are automatically saved in /reports with same filename stem as dest_path.
+        Plots and reports are automatically saved in REPORTS with same file basename as the results files.
 
         Args:
             found (pd.DataFrame): the results for articles successfully found.
             no_found (pd.DataFrame): the results for the negative results.
+
+        Returns:
+            (List[Path]): the list of path to the saved reports.
         """
-        overview(found, not_found, dest_path)
+        overview(found, not_found, self.dest_basename)
         if self.include_citations:
-            citation_distribution(found, self.dest_path)
-        journal_distributions(found, self.dest_path)
+            path_citation_distro = citation_distribution(found, self.dest_basename)
+        else:
+            path_citation_distro = None
+        journal_distributions(found, self.dest_basename)
         if self.include_preprints:
-            preprints(found, dest_path)
-            unlinked_preprints(found, dest_path)
+            path_preprints_by_decision = preprints(found, self.dest_basename)
+            path_unlinked_preprints = unlinked_preprints(found, self.dest_basename)
+        else:
+            path_preprints_by_decision = path_unlinked_preprints = None
+        filepaths = [path_citation_distro, path_preprints_by_decision, path_unlinked_preprints]
+        filepaths = list(filter(None, filepaths))
+        return filepaths
 
 
 def self_test():
@@ -222,7 +234,7 @@ def self_test():
 if __name__ == "__main__":
     parser = ArgumentParser(description="MatchPub scanner.")
     parser.add_argument("report", nargs="?", help="Path to the report with the list of submissions.")
-    parser.add_argument("dest", nargs="?", default="results/results.xlsx", help="Path to results file.")
+    parser.add_argument("dest", nargs="?", default="results", help="Basename of the result files, without extension.")
     parser.add_argument("-D", "--debug", action="store_true", help="Debug mode.")
     parser.add_argument("--no_citations", action="store_true", help="Flag to prevent queries to citation data.")
     args = parser.parse_args()
@@ -233,14 +245,14 @@ if __name__ == "__main__":
     else:
         logger.setLevel(logging.INFO)
     report_path = args.report
-    dest_path = args.dest
+    dest_basename = args.dest
     if report_path:
         ejp_report = EJPReport(report_path)
         logger.info(f"Analysis of {len(ejp_report)} submissions with settings: include_citations: {include_citations}, preprint_inclusion: {config.preprint_inclusion}.")
-        logger.info(f"Results will be saved in {dest_path}.")
+        logger.info(f"Results will be saved in {dest_basename}.")
         scanner = Scanner(
             ejp_report,
-            dest_path,
+            dest_basename,
             EuropePMCEngine,
             ScopusService,
             config.preprint_inclusion,
