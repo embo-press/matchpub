@@ -6,6 +6,15 @@ from pathlib import Path
 load_dotenv()
 SCOPUS_API_KEY = os.getenv('SCOPUS_API_KEY')
 
+EMAIL = os.getenv('EMAIL')
+IMAP_SERVER = os.getenv('IMAP_SERVER')
+SMTP_SERVER = os.getenv('SMTP_SERVER')
+PASSWORD = os.getenv('PASSWORD')
+
+DATA = os.getenv('DATA')
+RESULTS = os.getenv('RESULTS')
+REPORTS = os.getenv('REPORTS')
+
 logger = logging.getLogger('matchpub logger')
 logger.setLevel(logging.DEBUG)
 log_dir = Path('/log')
