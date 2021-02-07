@@ -14,9 +14,9 @@ services:
     volumes:
     - ./src:/app/src
     - ./test:/app/test
-    - ./data:/data
-    - ./results:/results
-    - ./reports:/reports
+    - ./data:${DATA}
+    - ./results:${RESULTS}
+    - ./reports:${REPORTS}
     - ./log:/log
     - /tmp/.X11-unix:/tmp/.X11-unix
     - /tmp:/tmp
