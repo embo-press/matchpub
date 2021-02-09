@@ -188,7 +188,7 @@ def reply_to(msg: MatchPubMessage, attachments: List[Path]):
                 # Email client can usually download this automatically as attachment
                 part = MIMEBase("application", "octet-stream")
                 part.set_payload(file.read())
-                # Encode file in ASCII characters to send by email    
+                # Encode file in ASCII characters to send by email
                 encoders.encode_base64(part)
                 # remove the uuid from the filename
                 path = str(path).replace(f"-{msg.uuid}-", "")
