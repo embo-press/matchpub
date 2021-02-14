@@ -3,8 +3,11 @@ import re
 import html
 import unicodedata
 from typing import List, Set
+from dateutil import parser
 
 from bs4 import BeautifulSoup
+
+from .config import config
 
 
 def normalize(
@@ -127,3 +130,21 @@ def flat_unique_set(x: List[List[str]]) -> Set[str]:
     flattened = [element for alt in x for element in alt]
     return set(flattened)
 
+
+def time_diff(start: str, end: str, dayfirst=config.dayfirst) -> int:
+    """Computes the time difference between end and start in days.
+    Time format is guessed. 
+
+    Args:
+        start (str): start date.
+        end (str): end date
+        dayfirst (bool): whether to interpret the first value in an ambiguous 3-integer date (e.g. 01/05/09) as the day (True) or month (False).
+
+    Returns:
+        (Datetime): time difference between end and start.
+    """
+    start = parser.parse(start, dayfirst=dayfirst)
+    end = parser.parse(end, dayfirst=dayfirst)
+    diff = end - start
+    
+    return diff.days

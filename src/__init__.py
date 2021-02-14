@@ -16,19 +16,19 @@ RESULTS = os.getenv('RESULTS')
 REPORTS = os.getenv('REPORTS')
 
 logger = logging.getLogger('matchpub logger')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 log_dir = Path('/log')
 log_file = Path('matchpub.log')
 if not log_dir.exists():
     log_dir.mkdir()
 log_path = log_dir / log_file
 fh = logging.FileHandler(log_path)
-fh.setLevel(logging.DEBUG)
+fh.setLevel(logging.INFO)
 formatter = logging.Formatter('%(levelname)s - %(message)s')
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 sh = logging.StreamHandler()
-sh.setLevel(logging.DEBUG)
+sh.setLevel(logging.INFO)
 sh.setFormatter(formatter)
 logger.addHandler(sh)
 

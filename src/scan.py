@@ -14,9 +14,10 @@ from .search import EuropePMCEngine
 from .ejp import EJPReport
 from .match import match_by_author, match_by_title
 from .net import BioRxivService, ScopusService
+from .decision import normalize_decision
 from .reports import (
     overview, citation_distribution, journal_distributions,
-    preprints, unlinked_preprints
+    preprints, unlinked_preprints, time_to_publish
 )
 from . import logger, RESULTS
 
@@ -186,6 +187,7 @@ class Scanner:
             dest_path = Path(RESULTS) / f"{self.dest_basename}-{name}-{timestamp}.xlsx" # change this to Path(RESULTS) / f"{dest_basename}-{name}-{timestamp}.xlsx"
 
             df = pd.DataFrame(analysis)
+            normalize_decision(df)
             df = df.sort_values(by='citations', ascending=False)
             with pd.ExcelWriter(dest_path) as writer:
                 try:
@@ -210,6 +212,7 @@ class Scanner:
             (List[Path]): the list of path to the saved reports.
         """
         overview(found, not_found, self.dest_basename)
+        time_to_publish(found, self.dest_basename)
         if self.include_citations:
             path_citation_distro = citation_distribution(found, self.dest_basename)
         else:

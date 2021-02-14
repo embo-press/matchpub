@@ -25,4 +25,4 @@ services:
       - XAUTHORITY=${XAUTH} # needs to make sure export XAUTH before i.e. in .bashrc
       - DISPLAY=${DISPLAY} # this seems to be exported by default 
     working_dir: /app
-    command: ["/bin/bash"]
+    command: ['python', '-m', 'src.email']

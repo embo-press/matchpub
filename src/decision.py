@@ -1,6 +1,10 @@
 import re
 
-"""Regex to aggregate decision types into accepted, rejected before review, rejected after review"""
+import pandas as pd
+
+"""Regex to aggregate decision types into accepted, rejected before review, rejected after review.
+Regex should be designed to be used with re.search()
+"""
 
 # REJECTED BEFORE REVIEW
 
@@ -42,9 +46,26 @@ decision_matching_regex = {
         # "accepted"
         # "rejected before review"
         # "rejected after review"
+        # "suggest posting of reviews"
         r"""
-        accept
+        (accept)|(suggest posting of reviews)
         """,
         re.IGNORECASE | re.VERBOSE
     )
 }
+
+
+def normalize_decision(analysis: pd.DataFrame):
+    """Normalizes inplace decisions into 3 fundamental decision types: 'accepted', 'rejected before review', 'rejected after review'.
+    Each type is defined by regexp provided in 'decision_matching_regex'
+
+    Args:
+        analysis (pd.DataFrame): the analysis whose column 'decision' will be normalized.
+
+    """
+    rejected_ed = analysis['decision'].apply(lambda x: decision_matching_regex['rejected before review'].search(x) is not None)
+    rejected_post = analysis['decision'].apply(lambda x: decision_matching_regex['rejected after review'].search(x) is not None)
+    accepted = analysis['decision'].apply(lambda x: decision_matching_regex['accepted'].search(x) is not None)
+    analysis.loc[rejected_ed, 'decision'] = 'rejected before review'
+    analysis.loc[rejected_post, 'decision'] = 'rejected after review'
+    analysis.loc[accepted, 'decision'] = 'accepted'

@@ -1,5 +1,9 @@
 from enum import Enum, unique
-from typing import List, Dict
+from dataclasses import dataclass, field
+from typing import Dict
+# from .models import PreprintInclusion, Config
+
+from .descriptions import ejp
 
 """Application-wide preferences"""
 
@@ -18,27 +22,25 @@ class PreprintInclusion(Enum):
     WITH_PREPRINT = "with_preprint"
 
 
+@dataclass
 class Config:
-    # the level of preprpint inclusion/exclusion
-    preprint_inclusion: PreprintInclusion = PreprintInclusion.NO_PREPRINT
-    # whether to include citation data
-    include_citations: bool = False
+    """Application-wide preferences.
 
-    metadata_keys: List[str] = [
-        "report_name", "editors", "time_window", "article_types", "creation_date"
-    ]
-    header_signature: List[str] = [
-        r"manu", r"manu", r"ed", r".*editor|colleague", r"reviewer|referee",
-        r"sub", r".*decision", r".*decision", r".*status", r".*title",
-        r"auth", r".*decision"
-    ]
-    feature_index: Dict[str, int] = {
-        "manuscript_nm": 0,
-        "editor": 2,
-        "decision": 7,
-        "title": 9,
-        "authors": 10,
-    }
+    Fields:
+        preprint_inclusion (PreprintInclusion): the level of preprint inclusion/exclusion.
+        include_citations (bool): whether to include citation data.
+        input_description (Dict): description of rows and columns of the input file.
+        dayfirst (bool): whether to interpret the first value in an ambiguous 3-integer date (e.g. 01/05/09) as the day (True) or month (False)
+    """
+    preprint_inclusion: PreprintInclusion = field(default=PreprintInclusion.NO_PREPRINT)
+    include_citations: bool = field(default=False)
+    input_description: Dict = field(default_factory=dict)
+    dayfirst: bool = field(default=False)
 
 
-config = Config()
+config = Config(
+    preprint_inclusion=PreprintInclusion.NO_PREPRINT,
+    include_citations=False,
+    input_description=ejp,
+    dayfirst=False
+)

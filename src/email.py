@@ -91,7 +91,18 @@ class MatchPubMessage:
         return MATCHPUB_MESSAGE_TEMPLATE.substitute(asdict(self))
 
 
-def main(my_folder: str = "INBOX.matchpub"):
+def main(my_folder: str = "INBOX.matchpub", iterations: int = 60, timeout: int = 30):
+    """Main email loop that monitors a folder, initiate new analysis when new requests are retrieved by email,
+    and send results as attachments by return email.
+    my_folder folder is monitored in idle mode for a duration set by timeout (in seconds).
+    As soon as an incoming message is detected, an analysis is initiated and a reply email is sent with the results.
+    After the specified number of iteration, the idle mode is terminated and the application leaves.
+
+    Args:
+        my_folder (str): the email folder where incoming requests are expected to arrive.
+        iterations (int): the number of cycles of monitoring to perform in idle mode before leaving the loop.
+        timeout (int): the duration in seconds of each idle mode monitoring cycle.
+    """
     with IMAPClient(IMAP_SERVER, use_uid=True) as imap_client:
         logger.info(f"checking email from {EMAIL}")
         imap_client.login(EMAIL, PASSWORD)
@@ -103,9 +114,10 @@ def main(my_folder: str = "INBOX.matchpub"):
         logger.info(f"{my_folder} contains {select_response[b'EXISTS']} messages, {select_response.get(b'RECENT')} recent.")
         imap_client.idle()
         logger.info("server entered idle mode.")
-        while True:
+        for i in range(iterations):
+            logger.info(f"iteration No {i+1} of {iterations} with duration {timeout}s.")
             try:
-                N, new_messages = monitor(N, imap_client, 30)
+                N, new_messages = monitor(N, imap_client, timeout)
                 if new_messages:
                     imap_client.idle_done()
                     logger.info("server left the idle mode.")
@@ -135,7 +147,7 @@ def monitor(current_num_messages: int, imap_client: IMAP_SERVER, timeout: int = 
 
 
 def get_messages(imap_client: IMAP_SERVER) -> List[MatchPubMessage]:
-    """Fetch new messages.
+    """Fetches new messages.
 
     Args:
         server (IMAPClien): an IMAP client connected to the email server.
@@ -155,6 +167,14 @@ def get_messages(imap_client: IMAP_SERVER) -> List[MatchPubMessage]:
 
 
 def perform_analysis(msg: MatchPubMessage) -> List[Path]:
+    """Performs the MatchPub analysis using the attached file as input and returns the paths to the analysis results.
+
+    Args:
+        msg (MatchPubMessage): the message retrieved by email.
+
+    Returns:
+        (List[Path]): the paths to the results and reports.
+    """
     ejp_report = EJPReport(msg.attachment_path)
     dest_basename = msg.attachment_path.stem
     scanner = Scanner(
@@ -166,6 +186,12 @@ def perform_analysis(msg: MatchPubMessage) -> List[Path]:
 
 
 def reply_to(msg: MatchPubMessage, attachments: List[Path]):
+    """Replies to a request retrieved by email and atttaches the result files.
+
+    Args:
+        msg (MatchPubMessage): the message retrieved by email.
+        attachments (List[Path]): the paths to the files to attach to the reply.
+    """
     # after: https://www.tutorialspoint.com/send-mail-with-attachment-from-your-gmail-account-using-python
     context = ssl.create_default_context()
     with SMTP_SSL(SMTP_SERVER, 465, context=context) as smtp_server:
@@ -181,7 +207,7 @@ def reply_to(msg: MatchPubMessage, attachments: List[Path]):
         message["To"] = to
         message["Subject"] = subject
         message.attach(MIMEText(body, "plain"))
-        logger.info(f"created multipar message with subject {subject}, from: {from_address}; to: {to}")
+        logger.info(f"created multipart message with subject {subject}, from: {from_address}; to: {to}")
         for path in attachments:
             with path.open("rb") as file:
                 # Add file as application/octet-stream
@@ -205,4 +231,13 @@ def reply_to(msg: MatchPubMessage, attachments: List[Path]):
 
 
 if __name__ == "__main__":
-    main()
+    parser = ArgumentParser(description="Email monitoring loop.")
+    parser.add_argument('--iterations', default=60, type=int, help="Number of iterations in idle mode.")
+    parser.add_argument('--timeout', default=60, type=int, help="Duration between each email checking iteration.")
+    parser.add_argument('--my_folder', default='INBOX.matchpub', help="Email folder to monitor.")
+    args = parser.parse_args()
+    my_folder = args.my_folder
+    timeout = args.timeout
+    iterations = args.iterations
+    logger.info(f"Application will leave after {iterations} iterations of {timeout}s each.")
+    main(my_folder=my_folder, timeout=timeout, iterations=iterations)

@@ -5,7 +5,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from .decision import decision_matching_regex
 from . import logger
 
 # import matplotlib.pyplot as plt
@@ -61,18 +60,8 @@ from . import logger
 # yellow, yellowgreen
 
 
-def normalize_decision(analysis: pd.DataFrame):
-    rejected_ed = analysis['decision'].apply(lambda x: decision_matching_regex['rejected before review'].match(x) is not None)
-    rejected_post = analysis['decision'].apply(lambda x: decision_matching_regex['rejected after review'].match(x) is not None)
-    accepted = analysis['decision'].apply(lambda x: decision_matching_regex['accepted'].match(x) is not None)
-    analysis.loc[rejected_ed, 'decision'] = 'rejected before review'
-    analysis.loc[rejected_post, 'decision'] = 'rejected after review'
-    analysis.loc[accepted, 'decision'] = 'accepted'
-
-
 def citation_distribution(analysis: pd.DataFrame, dest_path: str):
     dest_path = Path(dest_path)
-    normalize_decision(analysis)
     fig = px.violin(
         analysis,
         y="citations",
@@ -89,8 +78,6 @@ def citation_distribution(analysis: pd.DataFrame, dest_path: str):
 
 
 def overview(found: pd.DataFrame, not_found, dest_path: str):
-    normalize_decision(found)
-    normalize_decision(not_found)
     found['status'] = 'retrieved from PMC'
     not_found['status'] = 'not retrieved from PMC'
     overview = pd.concat([found, not_found])
@@ -125,7 +112,6 @@ def overview(found: pd.DataFrame, not_found, dest_path: str):
 
 
 def journal_distributions(analysis: pd.DataFrame, dest_path: str, max_slices: int = 21):
-    normalize_decision(analysis)
     max_slices = max_slices if len(analysis) > max_slices else len(analysis)
     analysis['count'] = 1  # adding a column to count
     all_rejections = analysis[(analysis.decision == 'rejected before review') | (analysis.decision == 'rejected after review')]
@@ -186,7 +172,6 @@ def journal_distributions(analysis: pd.DataFrame, dest_path: str, max_slices: in
 
 
 def preprints(analysis: pd.DataFrame, dest_path: str):
-    normalize_decision(analysis)
     preprints = analysis[analysis.is_preprint].copy()
     preprints["count"] = 1
     preprints["published"] = "not yet published"
@@ -223,7 +208,6 @@ def preprints(analysis: pd.DataFrame, dest_path: str):
 
 
 def unlinked_preprints(analysis: pd.DataFrame, dest_path: str):
-    normalize_decision(analysis)
     accepted = analysis[analysis['decision'] == 'accepted'].copy()
     accepted["preprint_published"] = False
     accepted.loc[accepted["preprint_published_doi"].notnull(), "preprint_published"] = True
@@ -248,10 +232,31 @@ def unlinked_preprints(analysis: pd.DataFrame, dest_path: str):
         accepted[cols].to_excel(writer)
 
 
+def time_to_publish(analysis: pd.DataFrame, dest_path: str):
+    analysis['pub_date'] = analysis['pub_date'].astype('datetime64[ns]')
+    analysis['time_to_publish'] = analysis['pub_date'] - analysis['sub_date']
+    analysis['time_to_publish'] = analysis['time_to_publish'].dt.days
+    analysis.loc[analysis['time_to_publish'] < 0, 'time_to_publish'] = None
+    fig = px.violin(
+        analysis,
+        y="time_to_publish",
+        x="decision",
+        category_orders={"decision": ['accepted', 'rejected before review', 'rejected after review']},
+        color_discrete_sequence=px.colors.qualitative.G10,
+        # color_discrete_map = {"accepted": "aliceblue", "rejected before review": "red", 'rejected after review': "orange"},
+        points="all",
+        title="Distribution of the time to publish by decision type",
+        color="decision",
+        template="seaborn",
+    )
+    save_img(fig, 'time_to_publish', dest_path)
+
+
 def save_img(fig, name: str, dest_path: str):
     dest_path = Path(dest_path)
     path = Path('/reports') / f"{dest_path.stem}-{name}.pdf"
     fig.write_image(str(path))
+    logger.info(f"saved report {path}")
 
 
 def self_test():
@@ -275,5 +280,6 @@ if __name__ == "__main__":
         citation_distribution(found, input_path)
         journal_distributions(found, input_path)
         overview(found, not_found, input_path)
+        time_to_publish(found, input_path)
     else:
         self_test()

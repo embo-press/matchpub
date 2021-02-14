@@ -9,6 +9,7 @@ class TestDecisionMatching(unittest.TestCase):
             "accepted": [
                 "accept",
                 "RC - Accept",
+                "Suggest Posting of Reviews"
             ],
             "rejected before review": [
                 "reject and refer"

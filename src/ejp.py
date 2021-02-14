@@ -5,6 +5,7 @@ from typing import List, Dict
 from collections import UserDict
 
 from .models import Submission
+from .config import config
 from . import logger
 
 
@@ -34,21 +35,9 @@ class EJPReport:
     def __init__(
         self,
         filepath: str,
-        metadata_keys: List[str] = [
-            "report_name", "editors", "time_window", "article_types", "creation_date"
-        ],
-        header_signature: List[str] = [
-            r"manu", r"manu", r"ed", r".*editor|colleague", r"reviewer|referee",
-            r"sub", r".*decision", r".*decision", r".*status", r".*title",
-            r"auth", r".*decision"
-        ],
-        feature_index: Dict[str, int] = {
-            "manuscript_nm": 0,
-            "editor": 2,
-            "decision": 7,
-            "title": 9,
-            "authors": 10,
-        }
+        metadata_keys: List[str] = config.input_description['metadata_keys'],
+        header_signature: List[str] = config.input_description['header_signature'],
+        feature_index: Dict[str, int] = config.input_description['feature_index']
     ):
         self.metadata: Metadata = Metadata(metadata_keys)  # metadata about the report
         self.header_signature = header_signature  # signature to find the begning of the table
@@ -86,11 +75,11 @@ class EJPReport:
             first = fragments.group(1)
             second = fragments.group(2)
         except Exception:
-            raise ValueError(f"Could not find the required 'between <date> and <date>' statement in '{text}'")
+            raise ValueError(f"Error parsing {self.filepath} - Could not find the required 'between <date> and <date>' statement in '{text}'")
         try:
             start, _ = parser.parse(first, fuzzy_with_tokens=True)
         except Exception:
-            raise ValueError(f"Cannot parse this '{first}' as a date.")
+            raise ValueError(f"Error parsing {self.filepath} - Cannot parse this '{first}' as a date.")
         try:
             end, _ = parser.parse(second, fuzzy_with_tokens=True)
         except Exception:
@@ -102,12 +91,13 @@ class EJPReport:
     def _load_data(self, sheet: pd.DataFrame):
         start = self._guess_start(sheet)  # where does the actual table start?
         data = sheet[start:].copy()  # select the relevant rows of the data frame
-        self._cleanup(data)  # remove 'paraiste' rows that repeat the header
+        self._cleanup(data)  # remove 'parasite' rows that repeat the header and replace NaN with empty string
         # remove anything that is not matching an accept/reject decision
         reduced_data = pd.DataFrame()
         for feature_name, idx in self.feature_index.items():
             reduced_data[feature_name] = data[idx]  # pick only the columns we need
-        mask = reduced_data['decision'].apply(lambda x: re.search(r"(reject)|(accept)", x, re.IGNORECASE) is not None)
+        # TODO: fix the data type per column
+        mask = reduced_data['decision'].apply(lambda x: re.search(config.input_description['decisions_considered'], x, re.IGNORECASE) is not None)
         filtered_data = reduced_data[mask].copy()
         self.data = filtered_data
 
@@ -120,7 +110,7 @@ class EJPReport:
         for i, row in sheet.iterrows():
             logger.debug(f"scanning row {row.to_list()}")
             if i > max_rows:
-                raise ValueError(f"Could not find the begining of the table with headers {self.header_signature}")
+                raise ValueError(f"Error parsing {self.filepath} - Could not find the begining of the table with headers {self.header_signature}")
             putative_header = row.to_list()
             if len(putative_header) == len(self.header_signature) and all([isinstance(e, str) for e in putative_header]):
                 if all([re.match(expected, putative, re.IGNORECASE) for expected, putative in zip(self.header_signature, putative_header)]):
@@ -128,7 +118,7 @@ class EJPReport:
                     start = i + 1  # success!
                     logger.debug(f"Found start of the table at position {start}")
                     return start
-        raise ValueError(f"Could not find the begining of the table with headers {self.header_signature}")
+        raise ValueError(f"Error parsing {self.filepath} - Could not find the begining of the table with headers {self.header_signature}")
 
     def _cleanup(self, data: pd.DataFrame):
         for i, row in data.iterrows():
@@ -136,6 +126,7 @@ class EJPReport:
             if elements == self.actual_header:
                 data.drop(index=i, inplace=True)
         data.reset_index(drop=True, inplace=True)
+        data.fillna("", inplace=True)  # replace NaN by empty string to avoid exception with re.search()
 
     def __str__(self):
         return str(self.data)

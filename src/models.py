@@ -24,13 +24,15 @@ class Paper:
     expanded_author_list: List[List[str]] = field(default_factory=list)
 
 
+# TODO: some class to centralize key_index in description, rows extracted from Excel and attributes of Paper
+
 @dataclass
 class Submission(Paper):
     """A Submission as extracted from an eJP report parsed into a pandas DataFrame.
     Includes editorial information in addition to fields inherited from Paper.
 
     Args:
-        row (pd.Series): the pandas row parsed form the eJP report row. 
+        row (pd.Series): the pandas row parsed form the eJP report row.
 
     Fields:
         manuscript_nm (str): the manuscript number internal to the editorial system.
@@ -40,6 +42,7 @@ class Submission(Paper):
     manuscript_nm: str = field(default='')
     editor: str = field(default='')
     decision: str = field(default='')
+    sub_date: str = field(default='')
 
     row: InitVar[pd.Series] = None
 
@@ -47,7 +50,7 @@ class Submission(Paper):
         self.manuscript_nm: str = row['manuscript_nm']
         self.editor: str = row['editor']
         self.decision: str = row['decision']
-
+        self.sub_date: str = row['sub_date']
         self.title: str = normalize(row['title'], do=['ctrl'])  # remove control characters that are invariably toxic
         self.author_list: List[str] = self.split_author_list(row['authors'])
         self.expanded_author_list: List[List[str]] = process_authors(self.author_list)
@@ -94,8 +97,7 @@ class Article(Paper):
        doi (str): the DOI of the published paper.
        pmid (str): the PMID identifier in PubMed.
        pub_type (str): whether a preprint, journal article, letter, book
-       month (str): the month of publishing.
-       year (str): the year of publsishing.
+       pub_date (str): date of publishing
        journal_name (str): the full-length journal title.
        journal_abbr (str): the abbreviated journal title as it appears in PubMed.
        abstract (str): the abstract.
@@ -109,8 +111,7 @@ class Article(Paper):
     pub_type: List[str] = field(default_factory=list)
     is_preprint: bool = field(default=None)
     preprint_published_doi: float = field(default=None)
-    year: str = field(default='')
-    month: str = field(default='')
+    pub_date: str = field(default='')
     journal_name: str = field(default='')
     journal_abbr: str = field(default='')
     abstract: str = field(default='')
@@ -134,8 +135,7 @@ class Article(Paper):
             self.journal_name = xml.findtext('./journalInfo/journal/title', '')
             self.journal_abbr = xml.findtext('./journalInfo/journal/medlineAbbreviation', '')
             self.is_preprint = False
-        self.year = xml.findtext('./journalInfo/yearOfPublication', '')
-        self.month = xml.findtext('./journalInfo/monthOfPublication', '')
+        self.pub_date = xml.findtext('./firstPublicationDate')
         self.doi = xml.findtext('./doi', '')
         self.abstract = xml.findtext('./abstractText', '')
 
@@ -209,6 +209,7 @@ class Analysis(UserList):
         results: List[Result] = [],
         field_label_map: List[Tuple[str, str]] = [
             ('submission.manuscript_nm', 'manuscript_nm'),
+            ('submission.sub_date', 'sub_date'),
             ('submission.editor', 'editor'),
             ('submission.decision', 'decision'),
             ('article.journal_abbr', 'journal'),
@@ -219,8 +220,7 @@ class Analysis(UserList):
             ('article.author_list', 'retrieved_authors'),
             ('article.doi', 'doi'),
             ('article.pmid', 'pmid'),
-            ('article.year', 'pub_year'),
-            ('article.month', 'pub_month'),
+            ('article.pub_date', 'pub_date'),
             ('article.abstract', 'retrieved_abstract'),
             ('article.strategy', 'retrieval_strategy'),
             ('article.title_similarity_score', 'title_score'),

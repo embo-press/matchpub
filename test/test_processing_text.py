@@ -1,7 +1,5 @@
 import unittest
 
-import unicodedata
-
 from src.utils import normalize, last_name
 
 
