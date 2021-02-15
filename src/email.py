@@ -139,7 +139,7 @@ def monitor(current_num_messages: int, imap_client: IMAP_SERVER, timeout: int = 
     new_messages = False
     for resp in responses:
         if (resp[1] == b'EXISTS') and (resp[0] > current_num_messages):  # new message(s) arrived
-            logger.info("{resp[0] - N} new messages received.")
+            logger.info(f"{resp[0] - N} new messages received.")
             current_num_messages = resp[0]
             new_messages = True
             break
@@ -196,7 +196,7 @@ def reply_to(msg: MatchPubMessage, attachments: List[Path]):
     context = ssl.create_default_context()
     with SMTP_SSL(SMTP_SERVER, 465, context=context) as smtp_server:
         smtp_server.login(EMAIL, PASSWORD)  # how long does it hold?
-        logger.info(f"login into smtp successful.")
+        logger.info("login into smtp successful.")
         subject = f"Re: {msg.subject}"
         body = f"MatchPub results with {len(attachments)} attachments.\nYour friendly MatchPub bot.\n\n\n"
         from_address = msg.from_address

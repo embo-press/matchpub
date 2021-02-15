@@ -8,51 +8,53 @@ Regex should be designed to be used with re.search()
 
 # REJECTED BEFORE REVIEW
 
-decision_matching_regex = {
-    'rejected before review': re.compile(
-        # "reject and refer"
-        # "reject before review"
-        # "reject before review advisory editorial board",
-        # "reject with board advice & refer",
-        # "editorial rejection",
-        # "editorial rejection (EBA)",
-        # "RC - Reject and Refer",
-        # "RC - Editorial Reject",
-        # "RC - Reject with EBA",
-        r"""
-        (reject\ before)|
-        (reject\ and\ refer)|
-        (reject\ with)|
-        (editorial\ reject)
-        """,
-        re.IGNORECASE | re.VERBOSE
-    ),
-    'rejected after review': re.compile(
-        # "reject post review"
-        # "reject post review - 2 reviewer"
-        # "reject post review (invite resubmission)"
-        # "Revise and Re-Review - Border Line Reject"
-        # "reject post review & refer"
-        # "rejection"
-        # "reject"
-        r"""
-        (reject\ post)|
-        (^reject(ion)?$)|
-        (border\ line\ reject)
-        """,
-        re.IGNORECASE | re.VERBOSE
-    ),
-    'accepted': re.compile(
-        # "accepted"
-        # "rejected before review"
-        # "rejected after review"
-        # "suggest posting of reviews"
-        r"""
-        (accept)|(suggest posting of reviews)
-        """,
-        re.IGNORECASE | re.VERBOSE
-    )
-}
+decision_matching_regex = {}
+
+# "reject and refer"
+# "reject before review"
+# "reject before review advisory editorial board",
+# "reject with board advice & refer",
+# "editorial rejection",
+# "editorial rejection (EBA)",
+# "RC - Reject and Refer",
+# "RC - Editorial Reject",
+# "RC - Reject with EBA",
+decision_matching_regex['rejected before review'] = re.compile(
+    r"""
+    (reject\ before)|
+    (reject\ and\ refer)|
+    (reject\ with)|
+    (editorial\ reject)
+    """,
+    re.IGNORECASE | re.VERBOSE
+)
+
+# "reject post review"
+# "reject post review - 2 reviewer"
+# "reject post review (invite resubmission)"
+# "Revise and Re-Review - Border Line Reject"
+# "reject post review & refer"
+# "rejection"
+# "reject"
+decision_matching_regex['rejected after review'] = re.compile(
+    r"""
+    (reject\ post)|
+    (^reject(ion)?$)|
+    (border\ line\ reject)
+    """,
+    re.IGNORECASE | re.VERBOSE
+)
+
+# "accepted"
+# "rejected before review"
+# "rejected after review"
+# "suggest posting of reviews"
+decision_matching_regex['accepted'] = re.compile(
+    r"""
+    (accept)|(suggest posting of reviews)
+    """,
+    re.IGNORECASE | re.VERBOSE
+)
 
 
 def normalize_decision(analysis: pd.DataFrame):

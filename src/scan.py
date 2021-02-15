@@ -57,7 +57,7 @@ class Scanner:
         exports the results to time-stamped Excel files and generate summary visualization.
         """
         N = len(self.ejp_report.articles)
-        logger.info(f"scanning {N} submissions {self.ejp_report.metadata['time_window']}.")
+        logger.info(f"scanning {N} submissions from {self.ejp_report.filepath}.")
         found, not_found = self.retrieve(self.ejp_report.articles)
         if self.include_citations:
             self.add_citations(found)

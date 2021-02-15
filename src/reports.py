@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
+# import plotly.graph_objects as go
 
 from . import logger
 

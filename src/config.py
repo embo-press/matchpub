@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Dict
 # from .models import PreprintInclusion, Config
 
-from .descriptions import ejp
+import src.descriptions as descriptions
 
 """Application-wide preferences"""
 
@@ -40,7 +40,7 @@ class Config:
 
 config = Config(
     preprint_inclusion=PreprintInclusion.NO_PREPRINT,
-    include_citations=False,
-    input_description=ejp,
+    include_citations=True,
+    input_description=descriptions.ejp_query_tool_matchpub_report,
     dayfirst=False
 )

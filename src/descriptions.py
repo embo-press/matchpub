@@ -7,7 +7,7 @@ The regex provided in 'header_signature' should match the begining of every head
 At the minimum, columns should be provided to specify 'manuscript_nm', 'editor', 'decision', 'title', 'authors' for each submission.
 This information is menadory and the position index of these columns must be provided in 'feature_inde'x.'
 """
-ejp = {
+ejp_editor_track_report = {
     # names given to metadata info provided in first lines
     "metadata_keys": [
         "report_name",
@@ -39,4 +39,28 @@ ejp = {
     ],
     # regex to filter rows to include only decisions to be considered 
     "decisions_considered": r"(accept)|(reject)|(suggest posting of reviews)"
+}
+
+
+ejp_query_tool_matchpub_report = {
+    # names given to metadata info provided in first lines
+    "metadata_keys": [],
+    "feature_index": {
+        # these fields are all mendatory
+        "manuscript_nm": 0,
+        "editor": 1,
+        "sub_date": 2,
+        "decision": 3,
+        "title": 4,
+        "authors": 5,
+        "abstract": 6,
+    },
+    #  regex should be designed to be used with re.match() to detect header line of data table
+    "header_signature": [
+        r"manuscript_nm", r"editor", r"sub_date", r"decision", r"title",
+        r"authors", r"abstract",
+    ],
+    # regex to filter rows to include only decisions to be considered 
+    "decisions_considered":
+        r"(accept)|(reject)|(suggest posting of reviews)",
 }
