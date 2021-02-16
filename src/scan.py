@@ -54,7 +54,7 @@ class Scanner:
         self.include_citations = include_citations
 
     def run(self) -> List[Path]:
-        """Retrieves the best matching published papers corresponding to the submissions of interest, adds citation data, 
+        """Retrieves the best matching published papers corresponding to the submissions of interest, adds citation data,
         exports the results to time-stamped Excel files and generate summary visualization.
         """
         N = len(self.ejp_report.articles)
@@ -185,7 +185,7 @@ class Scanner:
 
         if results:
             analysis = Analysis(results)
-            dest_path = Path(RESULTS) / f"{self.dest_basename}-{name}-{timestamp}.xlsx" # change this to Path(RESULTS) / f"{dest_basename}-{name}-{timestamp}.xlsx"
+            dest_path = Path(RESULTS) / f"{self.dest_basename}-{name}-{timestamp}.xlsx"  # change this to Path(RESULTS) / f"{dest_basename}-{name}-{timestamp}.xlsx"
             df = pd.DataFrame(analysis)
             normalize_decision(df)
             df = df.sort_values(by='citations', ascending=False)
@@ -194,7 +194,6 @@ class Scanner:
                 try:
                     df.to_excel(writer, encoding='utf-8')
                 except Exception as e:
-                    import pdb; pdb.set_trace()
                     logger.error(f"error ({str(e)}) when exporting {name} to Excel file {dest_path}")
             logger.info(f"results {name} saved to {dest_path}")
         else:
