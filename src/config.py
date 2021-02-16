@@ -40,7 +40,7 @@ class Config:
 
 config = Config(
     preprint_inclusion=PreprintInclusion.NO_PREPRINT,
-    include_citations=True,
+    include_citations=False,
     input_description=descriptions.ejp_query_tool_matchpub_report,
     dayfirst=False
 )

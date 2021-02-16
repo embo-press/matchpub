@@ -40,6 +40,7 @@ class MatchPubMessage:
 
     uid: InitVar[int] = None
     msg_data: InitVar[Dict[ByteString, Union[int, ByteString]]] = None
+    dest_dir: InitVar[Path] = None
 
     def __post_init__(self, uid: int, msg_data: Dict[ByteString, Union[int, ByteString]], dest_dir: Path = Path(DATA)):
         self.uid = uid
@@ -48,6 +49,7 @@ class MatchPubMessage:
         self.from_address = msg.get("from")
         self.subject = msg.get("subject")
         self.reply_to = msg.get("Return-Path")
+        self.dest_dir = dest_dir
         logger.info(f"From: {self.from_address}")
         logger.info(f"Subject: {self.subject}")
         logger.info(f"Return address: {self.reply_to}")
@@ -65,22 +67,21 @@ class MatchPubMessage:
                     self.body = body
                     logger.info(f"Content:\n{body}")
                 elif "attachment" in content_disposition:
-                    filename = part.get_filename()
-                    if filename:
-                        folder_name = self.clean(self.subject)
-                        folder = dest_dir / folder_name
-                        if not folder.exists():
-                            folder.mkdir()
-                        filename = Path(filename)
-                        self.uuid = uuid4()
-                        filename_uuid = f"{filename.stem}-{self.uuid}-{filename.suffix}"
-                        filepath = folder / filename_uuid
-                        attachment = part.get_payload(decode=True)
-                        filepath.write_bytes(attachment)
-                        self.attachment_path = filepath
-                        logger.info(f"attachment saved under: {filepath}")
+                    self.get_attachment(part)
         else:
             logger.info(f"no attachment to message {uid}")
+
+    def get_attachment(self, part):
+        filename = part.get_filename()
+        if filename:
+            filename = Path(filename)
+            self.uuid = uuid4()
+            filename_uuid = f"{filename.stem}-{self.uuid}-{filename.suffix}"
+            filepath = self.dest_dir / filename_uuid
+            attachment = part.get_payload(decode=True)
+            filepath.write_bytes(attachment)
+            self.attachment_path = filepath
+            logger.info(f"attachment saved under: {filepath}")
 
     @staticmethod
     def clean(text):
@@ -139,7 +140,7 @@ def monitor(current_num_messages: int, imap_client: IMAP_SERVER, timeout: int = 
     new_messages = False
     for resp in responses:
         if (resp[1] == b'EXISTS') and (resp[0] > current_num_messages):  # new message(s) arrived
-            logger.info(f"{resp[0] - N} new messages received.")
+            logger.info(f"{resp[0] - current_num_messages} new messages received.")
             current_num_messages = resp[0]
             new_messages = True
             break
@@ -150,7 +151,7 @@ def get_messages(imap_client: IMAP_SERVER) -> List[MatchPubMessage]:
     """Fetches new messages.
 
     Args:
-        server (IMAPClien): an IMAP client connected to the email server.
+        server (IMAPClient): an IMAP client connected to the email server.
 
     Returns:
         (List[MatchPubMessage]): the new MatchPub messages

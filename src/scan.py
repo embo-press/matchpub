@@ -16,8 +16,9 @@ from .match import match_by_author, match_by_title
 from .net import BioRxivService, ScopusService
 from .decision import normalize_decision
 from .reports import (
-    overview, citation_distribution, journal_distributions,
-    preprints, unlinked_preprints, time_to_publish
+    Overview, CitationDistribution, TimeToPublish,
+    JournalDistributionPie, JournalDistributionTreeMap,
+    PreprintOverview, UnlinkedPreprints,
 )
 from . import logger, RESULTS
 
@@ -185,13 +186,13 @@ class Scanner:
         if results:
             analysis = Analysis(results)
             dest_path = Path(RESULTS) / f"{self.dest_basename}-{name}-{timestamp}.xlsx" # change this to Path(RESULTS) / f"{dest_basename}-{name}-{timestamp}.xlsx"
-
             df = pd.DataFrame(analysis)
             normalize_decision(df)
             df = df.sort_values(by='citations', ascending=False)
+            df = df[analysis[0].cols]  # order the columns
             with pd.ExcelWriter(dest_path) as writer:
                 try:
-                    df[analysis.cols].to_excel(writer, encoding='utf-8')
+                    df.to_excel(writer, encoding='utf-8')
                 except Exception as e:
                     import pdb; pdb.set_trace()
                     logger.error(f"error ({str(e)}) when exporting {name} to Excel file {dest_path}")
@@ -211,20 +212,18 @@ class Scanner:
         Returns:
             (List[Path]): the list of path to the saved reports.
         """
-        overview(found, not_found, self.dest_basename)
-        time_to_publish(found, self.dest_basename)
+
+        reports = []
+        reports.append(Overview(found, not_found, self.dest_basename))
+        reports.append(TimeToPublish(found, self.dest_basename))
         if self.include_citations:
-            path_citation_distro = citation_distribution(found, self.dest_basename)
-        else:
-            path_citation_distro = None
-        journal_distributions(found, self.dest_basename)
+            reports.append(CitationDistribution(found, self.dest_basename))
+        reports.append(JournalDistributionPie(found, self.dest_basename))
+        reports.append(JournalDistributionTreeMap(found, self.dest_basename))
         if self.include_preprints:
-            path_preprints_by_decision = preprints(found, self.dest_basename)
-            path_unlinked_preprints = unlinked_preprints(found, self.dest_basename)
-        else:
-            path_preprints_by_decision = path_unlinked_preprints = None
-        filepaths = [path_citation_distro, path_preprints_by_decision, path_unlinked_preprints]
-        filepaths = list(filter(None, filepaths))
+            reports.append(PreprintOverview(found, self.dest_basename))
+            reports.append(UnlinkedPreprints(found, self.dest_basename))
+        filepaths = [rep.my_path for rep in reports]
         return filepaths
 
 
