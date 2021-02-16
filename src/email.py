@@ -37,19 +37,18 @@ class MatchPubMessage:
     body: str = field(default="")
     attachment_path: Path = field(default=None)
     uuid: str = field(default="")
+    dest_dir: Path = field(default=Path(DATA))
 
     uid: InitVar[int] = None
     msg_data: InitVar[Dict[ByteString, Union[int, ByteString]]] = None
-    dest_dir: InitVar[Path] = None
 
-    def __post_init__(self, uid: int, msg_data: Dict[ByteString, Union[int, ByteString]], dest_dir: Path = Path(DATA)):
+    def __post_init__(self, uid: int, msg_data: Dict[ByteString, Union[int, ByteString]]):
         self.uid = uid
         msg = email.message_from_bytes(msg_data[b"RFC822"])
         logger.info(f"msg {uid} keys:\n{msg.keys()}\n\n")
         self.from_address = msg.get("from")
         self.subject = msg.get("subject")
         self.reply_to = msg.get("Return-Path")
-        self.dest_dir = dest_dir
         logger.info(f"From: {self.from_address}")
         logger.info(f"Subject: {self.subject}")
         logger.info(f"Return address: {self.reply_to}")
@@ -76,23 +75,18 @@ class MatchPubMessage:
         if filename:
             filename = Path(filename)
             self.uuid = uuid4()
-            filename_uuid = f"{filename.stem}-{self.uuid}-{filename.suffix}"
+            filename_uuid = f"{filename.stem}-{self.uuid}{filename.suffix}"
             filepath = self.dest_dir / filename_uuid
             attachment = part.get_payload(decode=True)
             filepath.write_bytes(attachment)
             self.attachment_path = filepath
             logger.info(f"attachment saved under: {filepath}")
 
-    @staticmethod
-    def clean(text):
-        # clean text for creating a folder
-        return "".join(c if c.isalnum() else "_" for c in text)
-
     def __str__(self):
         return MATCHPUB_MESSAGE_TEMPLATE.substitute(asdict(self))
 
 
-def main(my_folder: str = "INBOX.matchpub", iterations: int = 60, timeout: int = 30):
+def main(my_folder: str = "INBOX.matchpub", iterations: int = None, timeout: int = 30):
     """Main email loop that monitors a folder, initiate new analysis when new requests are retrieved by email,
     and send results as attachments by return email.
     my_folder folder is monitored in idle mode for a duration set by timeout (in seconds).
@@ -113,25 +107,32 @@ def main(my_folder: str = "INBOX.matchpub", iterations: int = 60, timeout: int =
         select_response = imap_client.select_folder(my_folder, readonly=True)  # At least the b'EXISTS', b'FLAGS' and b'RECENT' keys are guaranteed to exist
         N = select_response[b'EXISTS']
         logger.info(f"{my_folder} contains {select_response[b'EXISTS']} messages, {select_response.get(b'RECENT')} recent.")
-        imap_client.idle()
-        logger.info("server entered idle mode.")
-        for i in range(iterations):
-            logger.info(f"iteration No {i+1} of {iterations} with duration {timeout}s.")
-            try:
-                N, new_messages = monitor(N, imap_client, timeout)
-                if new_messages:
-                    imap_client.idle_done()
-                    logger.info("server left the idle mode.")
-                    matchpub_messages = get_messages(imap_client)
-                    for msg in matchpub_messages:
-                        results = perform_analysis(msg)
-                        reply_to(msg, attachments=results)
-                        imap_client.set_flags(msg.uid, ANSWERED)
+        if iterations is not None:
+            for i in range(iterations):
+                logger.info(f"iteration No {i+1} of {iterations} with duration {timeout}s.")
+                try:
                     imap_client.idle()
-                    logger.info("server in idle mode.")
-            except KeyboardInterrupt:
-                break
-        imap_client.idle_done()
+                    logger.info("server entered idle mode.")
+                    N, new_messages = monitor(N, imap_client, timeout)
+                    if new_messages:
+                        imap_client.idle_done()
+                        logger.info("server left the idle mode.")
+                        get_analyze_reply(imap_client)
+                except KeyboardInterrupt:
+                    break
+        else:  # no iterations means we just check email once and leave
+            logger.info("no iterations: checking now once.")
+            get_analyze_reply(imap_client)
+
+
+def get_analyze_reply(imap_client: IMAP_SERVER):
+    matchpub_messages = get_messages(imap_client)
+    for msg in matchpub_messages:
+        results = perform_analysis(msg)
+        reply_to(msg, attachments=results)
+        curr_flags = imap_client.get_flags(msg.uid)
+        curr_flags = curr_flags[msg.uid]
+        imap_client.set_flags(msg.uid, curr_flags + (ANSWERED,))
 
 
 def monitor(current_num_messages: int, imap_client: IMAP_SERVER, timeout: int = 30) -> Tuple[int, bool]:
@@ -163,7 +164,7 @@ def get_messages(imap_client: IMAP_SERVER) -> List[MatchPubMessage]:
     for uid, m in msg_dict.items():
         logger.info(f"msg {uid} has flags {imap_client.get_flags(uid)}")
         matchpub_messages.append(MatchPubMessage(uid=uid, msg_data=m))
-        imap_client.set_flags(uid, SEEN, silent=False)
+        imap_client.set_flags(uid, SEEN)
     return matchpub_messages
 
 
@@ -233,8 +234,8 @@ def reply_to(msg: MatchPubMessage, attachments: List[Path]):
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Email monitoring loop.")
-    parser.add_argument('--iterations', default=60, type=int, help="Number of iterations in idle mode.")
-    parser.add_argument('--timeout', default=60, type=int, help="Duration between each email checking iteration.")
+    parser.add_argument('--iterations', default=None, type=int, help="Number of iterations in idle mode.")
+    parser.add_argument('--timeout', default=30, type=int, help="Duration between each email checking iteration.")
     parser.add_argument('--my_folder', default='INBOX.matchpub', help="Email folder to monitor.")
     args = parser.parse_args()
     my_folder = args.my_folder

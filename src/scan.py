@@ -223,7 +223,7 @@ class Scanner:
         if self.include_preprints:
             reports.append(PreprintOverview(found, self.dest_basename))
             reports.append(UnlinkedPreprints(found, self.dest_basename))
-        filepaths = [rep.my_path for rep in reports]
+        filepaths = [rep.path for rep in reports if rep.path is not None]
         return filepaths
 
 

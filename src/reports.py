@@ -18,21 +18,19 @@ class MatchPubReport:
         self.not_found = not_found
         self.basename = Path(dest_path).stem
         self.name = name
-        self.my_path = Path(report_dir)
+        self.report_dir = Path(report_dir)
+        self.path = None
         report = self.generate_report()
         self.save_report(report)
 
     def generate_report(self) -> Figure:
         NotImplementedError
 
-    def save_report(self, fig: Figure) -> str:
+    def save_report(self, fig: Figure):
         if fig is not None:
-            path = self.my_path / f"{self.basename}-{self.name}.pdf"
-            fig.write_image(str(path))
-            logger.info(f"saved report {path}")
-            return str(path)
-        else:
-            return ''
+            self.path = self.report_dir / f"{self.basename}-{self.name}.pdf"
+            fig.write_image(str(self.path))
+            logger.info(f"saved report {self.path}")
 
 
 class Overview(MatchPubReport):
@@ -99,7 +97,6 @@ class JournalDistributionAllRejects(MatchPubReport):
         super().__init__(found, None, *args, **kwargs)
 
     def all_rejects(self) -> pd.DataFrame:
-        import pdb; pdb.set_trace()
         self.found['count'] = 1  # adding a column to count
         all_rejections = self.found[(self.found.decision == 'rejected before review') | (self.found.decision == 'rejected after review')]
         return all_rejections
@@ -270,8 +267,8 @@ class UnlinkedPreprints(MatchPubReport):
         return accepted[cols]
 
     def save_report(self, report: pd.DataFrame) -> str:
-        dest_path = self.my_path / f"{self.basename}-unlinked_preprints.xlsx"
-        with pd.ExcelWriter(dest_path) as writer:
+        self.path = self.report_dir / f"{self.basename}-unlinked_preprints.xlsx"
+        with pd.ExcelWriter(self.path) as writer:
             report.to_excel(writer)
 
 
