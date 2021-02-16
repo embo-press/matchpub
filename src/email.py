@@ -31,6 +31,25 @@ MATCHPUB_MESSAGE_TEMPLATE = Template("""From: ${from_address}\nReply to: ${reply
 
 @dataclass
 class MatchPubMessage:
+    """Parses an email message and saves its attached file.
+    Assumes that a single file is attached.
+
+    Args:
+        uid (int): the identifier of the message on the imap server.
+        msg_data (Dict[ByteString, Union[int, ByteString]]): the data to be parsed.
+
+    Fields:
+        from_address (str): the address from which the message was sent.
+        reply_to (str): the address to which the reply will be sent.
+        subject (str) the email subject line.
+        body (str): the text of the body of the message.
+        attachment_path (Path): the full path to the attachment
+        uuid (str): a uuid that is attached to the attachement file name before saving to disk.
+        dest_dir (Path): the directory where the attachment should be saved.
+
+        uid (int): the message id on the imap server.
+        msg_data ([Dict[ByteString, Union[int, ByteString]]): the original data to be parsed.
+    """
     from_address: str = field(default="")
     reply_to: str = field(default="")
     subject: str = field(default="")
@@ -92,6 +111,7 @@ def main(my_folder: str = "INBOX.matchpub", iterations: int = None, timeout: int
     my_folder folder is monitored in idle mode for a duration set by timeout (in seconds).
     As soon as an incoming message is detected, an analysis is initiated and a reply email is sent with the results.
     After the specified number of iteration, the idle mode is terminated and the application leaves.
+    If iterations is set to None, the email my_folder is checked immediately and only once.
 
     Args:
         my_folder (str): the email folder where incoming requests are expected to arrive.
@@ -126,6 +146,8 @@ def main(my_folder: str = "INBOX.matchpub", iterations: int = None, timeout: int
 
 
 def get_analyze_reply(imap_client: IMAP_SERVER):
+    """Retrieves any unread messages, performs the analysis and sends a reply with the results and reports.
+    """
     matchpub_messages = get_messages(imap_client)
     for msg in matchpub_messages:
         results = perform_analysis(msg)
@@ -136,6 +158,17 @@ def get_analyze_reply(imap_client: IMAP_SERVER):
 
 
 def monitor(current_num_messages: int, imap_client: IMAP_SERVER, timeout: int = 30) -> Tuple[int, bool]:
+    """Checkt if any new messages has arrived in the inbox while in idle mode.
+
+    Args:
+        current_num_messages (int): the current number of messages before checking.
+        imap_client (IMAP_SERVER): the imap client.
+        timeout (int): the duration in idle checking mode.
+
+    Returns:
+        (int): the new current number of messages.
+        (bool): whether any new messages were detected.
+    """
     responses = imap_client.idle_check(timeout=timeout)  # [(b'FLAGS', (b'$NotJunk', b'\\Draft', b'\\Answered', b'\\Flagged', b'\\Deleted', b'\\Seen', b'\\Recent')), (b'OK', b'[PERMANENTFLAGS ()] No permanent flags permitted'), (3, b'EXISTS'), (0, b'RECENT'), (2, b'FETCH', (b'FLAGS', (b'\\Answered', b'\\Seen')))]
     logger.info(f"Server sent: {responses if responses else 'nothing'}")
     new_messages = False
