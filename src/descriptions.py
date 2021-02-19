@@ -54,13 +54,17 @@ ejp_query_tool_matchpub_report = {
         "title": 4,
         "authors": 5,
         "abstract": 6,
+        "avg_time_to_secure_rev": 7,
+        "min_time_to_secure_rev": 8,
+        "referee_number": 9
     },
     #  regex should be designed to be used with re.match() to detect header line of data table
     "header_signature": [
         r"manuscript_nm", r"editor", r"sub_date", r"decision", r"title",
         r"authors", r"abstract",
+        r"avg_time_to_secure_rev", r"min_time_to_secure_rev", r"referee_number"
     ],
-    # regex to filter rows to include only decisions to be considered 
+    # regex to filter rows to include only decisions to be considered
     "decisions_considered":
         r"(accept)|(reject)|(suggest posting of reviews)",
 }

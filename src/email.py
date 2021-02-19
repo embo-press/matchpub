@@ -128,16 +128,18 @@ def main(my_folder: str = "INBOX.matchpub", iterations: int = None, timeout: int
         N = select_response[b'EXISTS']
         logger.info(f"{my_folder} contains {select_response[b'EXISTS']} messages, {select_response.get(b'RECENT')} recent.")
         if iterations is not None:
+            imap_client.idle()
+            logger.info("server entered idle mode.")
             for i in range(iterations):
                 logger.info(f"iteration No {i+1} of {iterations} with duration {timeout}s.")
                 try:
-                    imap_client.idle()
-                    logger.info("server entered idle mode.")
                     N, new_messages = monitor(N, imap_client, timeout)
                     if new_messages:
                         imap_client.idle_done()
                         logger.info("server left the idle mode.")
                         get_analyze_reply(imap_client)
+                        imap_client.idle()
+                        logger.info("server entered idle mode.")
                 except KeyboardInterrupt:
                     break
         else:  # no iterations means we just check email once and leave

@@ -1,6 +1,5 @@
 import re
 import pandas as pd
-from dateutil import parser
 from typing import List, Dict
 from collections import UserDict
 
@@ -19,8 +18,6 @@ class EJPReport:
     """The representation of the EJP report 'Editor Track Report'.
     The report is expected to start with a series of rows that include metadata about the report.
     The expected order of the metadata rows is given in the argument metadata_keys.
-    (obsolete: Metadata rows should be strings, with no particular format except for the only mandatory row:'time_window".
-    The time_window row should include a statement of the form 'between <date> and <date>' (the format of the date will be guessed).)
     After the metadata row, the start of the actual data tabel will be search automatically by screening for a header row.
     The headers should all match the regex provided in header_signature.
     At the minimum, columns should be provided to specify 'manuscript_nm', 'editor', 'decision', 'title', 'authors' for each submission.
@@ -66,28 +63,6 @@ class EJPReport:
                 logger.debug(f"Imported metadata '{k}'")
             else:
                 logger.error(f"The row #{i} supposed to include info on '{k}' is not a string. Ignored.")
-        # self._guess_time_window(self.metadata['time_window'])
-
-    # def _guess_time_window(self, text: str):
-    #     fragments = re.search(r"between(.*)and(.*)", text)
-    #     start = ''
-    #     end = ''
-    #     try:
-    #         first = fragments.group(1)
-    #         second = fragments.group(2)
-    #     except Exception:
-    #         raise ValueError(f"Error parsing {self.filepath} - Could not find the required 'between <date> and <date>' statement in '{text}'")
-    #     try:
-    #         start, _ = parser.parse(first, fuzzy_with_tokens=True)
-    #     except Exception:
-    #         raise ValueError(f"Error parsing {self.filepath} - Cannot parse this '{first}' as a date.")
-    #     try:
-    #         end, _ = parser.parse(second, fuzzy_with_tokens=True)
-    #     except Exception:
-    #         raise ValueError(f"Cannot parse this '{second}' as a date.")
-    #     self.metadata['time_range'] = {}
-    #     self.metadata['time_range']['start'] = start
-    #     self.metadata['time_range']['end'] = end
 
     def _load_data(self, sheet: pd.DataFrame):
         start = self._guess_start(sheet)  # where does the actual table start?

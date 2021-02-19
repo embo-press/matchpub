@@ -17,6 +17,7 @@ from .net import BioRxivService, ScopusService
 from .decision import normalize_decision
 from .reports import (
     Overview, CitationDistribution, TimeToPublish,
+    CorrelCitationTimeToSecureReview,
     JournalDistributionPie, JournalDistributionTreeMap,
     PreprintOverview, UnlinkedPreprints,
 )
@@ -212,13 +213,15 @@ class Scanner:
             (List[Path]): the list of path to the saved reports.
         """
 
-        reports = []
-        reports.append(Overview(found, not_found, self.dest_basename))
-        reports.append(TimeToPublish(found, self.dest_basename))
+        reports = [
+            Overview(found, not_found, self.dest_basename),
+            TimeToPublish(found, self.dest_basename),
+            CorrelCitationTimeToSecureReview(found, self.dest_basename),
+            JournalDistributionPie(found, self.dest_basename),
+            JournalDistributionTreeMap(found, self.dest_basename)
+        ]
         if self.include_citations:
             reports.append(CitationDistribution(found, self.dest_basename))
-        reports.append(JournalDistributionPie(found, self.dest_basename))
-        reports.append(JournalDistributionTreeMap(found, self.dest_basename))
         if self.include_preprints:
             reports.append(PreprintOverview(found, self.dest_basename))
             reports.append(UnlinkedPreprints(found, self.dest_basename))

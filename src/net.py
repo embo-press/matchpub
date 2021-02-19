@@ -119,13 +119,12 @@ class ScopusService(Service):
             if response.status_code == 200:
                 remaining_queries = response.headers.get('X-RateLimit-Remaining')
                 if int(remaining_queries) < 10_000:
-                    logger.error(f"more than half of queries consumed. Only {remaining_queries} left!")
-                    raise RuntimeError(f"quota half consumed. Remaining: {remaining_queries}.")
-                else:
-                    data = response.json()
-                    matches = int(data['search-results']['opensearch:totalResults'])
+                    logger.warning(f"more than half of queries consumed. Only {remaining_queries} left!")
+                    # raise RuntimeError(f"quota half consumed. Remaining: {remaining_queries}.")
+                data = response.json()
+                matches = int(data['search-results']['opensearch:totalResults'])
                 if matches == 1:
                     citation_count = int(data['search-results']['entry'][0]['citedby-count'])
             else:
-                logger.error(f"Somethign went wrong ({r.status_code}) with {pmid}:\n{r.content}\n{r.headers}")
+                logger.error(f"Something went wrong ({response.status_code}) with {pmid}:\n{response.content}\n{response.headers}")
         return citation_count

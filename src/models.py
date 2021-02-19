@@ -43,6 +43,9 @@ class Submission(Paper):
     editor: str = field(default='')
     decision: str = field(default='')
     sub_date: str = field(default='')
+    min_time_to_secure_rev: int = field(default=None)
+    avg_time_to_secure_rev: float = field(default=None)
+    referee_number: int = field(default=None)
 
     row: InitVar[pd.Series] = None
 
@@ -51,6 +54,9 @@ class Submission(Paper):
         self.editor: str = row['editor']
         self.decision: str = row['decision']
         self.sub_date: str = row['sub_date']
+        self.min_time_to_secure_rev = row['min_time_to_secure_rev']
+        self.avg_time_to_secure_rev = row['avg_time_to_secure_rev']
+        self.referee_number = row['referee_number']
         self.title: str = normalize(row['title'], do=['ctrl'])  # remove control characters that are invariably toxic
         self.author_list: List[str] = self.split_author_list(row['authors'])
         self.expanded_author_list: List[List[str]] = process_authors(self.author_list)
@@ -162,7 +168,7 @@ class Result:
 
 
 class ResultDict(UserDict):
-    """A customized ordered dictionary that maps the fields of matching Article and Submission to the ordered sequence of headers or columns
+    """Maps the fields of matching Article and Submission to the ordered sequence of headers or columns
     names that are used when saving results in Excel files or processing the data in pandas DataFrame.
     Dataclass fields are mapped to dictionary keys. To allow reordering of fields from Article and Submissions, fields
     are encoded with the convention: (<submission|article>.<field_name>, <my_header_name>)
@@ -225,6 +231,9 @@ class Analysis(UserList):
             ('article.strategy', 'retrieval_strategy'),
             ('article.title_similarity_score', 'title_score'),
             ('article.author_overlap_score', 'author_score'),
+            ('submission.min_time_to_secure_rev', 'min_time_to_secure_rev'),
+            ('submission.avg_time_to_secure_rev', 'avg_time_to_secure_rev'),
+            ('submission.referee_number', 'referee_number'),
             ('article.pub_type', 'publication_type'),
             ('article.preprint_published_doi', 'preprint_published_doi'),
             ('article.is_preprint', 'is_preprint')
