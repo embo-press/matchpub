@@ -1,6 +1,26 @@
 import unittest
 
-from src.utils import time_diff
+from src.utils import normalize_date, time_diff
+
+
+class TestTimeNormalization(unittest.TestCase):
+    def test_time_norm_dot(self):
+        x = "1.12.2019"
+        expected = '2019-12-01'
+        y = normalize_date(x, dayfirst=True)
+        self.assertEqual(y, expected)
+
+    def test_time_norm_europe_month(self):
+        x = "1 Dec 2019"
+        expected = '2019-12-01'
+        y = normalize_date(x, dayfirst=True)
+        self.assertEqual(y, expected)
+
+    def test_time_norm_us_month(self):
+        x = "December 1st, 2019"
+        expected = '2019-12-01'
+        y = normalize_date(x, dayfirst=True)
+        self.assertEqual(y, expected)
 
 
 class TestTimeDiff(unittest.TestCase):

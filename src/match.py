@@ -44,7 +44,7 @@ def match_by_author(candidates: List[Article], submitting_authors: List[List[str
 
     Returns:
         (Article): the best retrieved article.
-        (bool): 
+        (bool): whether a match could be found
     """
     match, success = _match(candidates, submitting_authors, max_author_overlap, auth_threshold)
     title_similarity_score = similarity(submitted_title, match.title)

@@ -17,6 +17,7 @@ REPORTS = os.getenv('REPORTS')
 
 logger = logging.getLogger('matchpub logger')
 logger.setLevel(logging.INFO)
+formatter = logging.Formatter("%(levelname)s - %(asctime)s - %(message)s", datefmt="%y-%m-%d %H:%M:%S")
 log_dir = Path('/log')
 log_file = Path('matchpub.log')
 if not log_dir.exists():
@@ -24,12 +25,10 @@ if not log_dir.exists():
 log_path = log_dir / log_file
 fh = logging.FileHandler(log_path)
 fh.setLevel(logging.INFO)
-formatter = logging.Formatter('%(levelname)s - %(message)s')
 fh.setFormatter(formatter)
 logger.addHandler(fh)
+
 sh = logging.StreamHandler()
 sh.setLevel(logging.INFO)
 sh.setFormatter(formatter)
 logger.addHandler(sh)
-
-

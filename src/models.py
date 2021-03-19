@@ -7,7 +7,7 @@ import re
 from lxml.etree import Element
 import pandas as pd
 
-from .utils import process_authors, last_name, normalize
+from .utils import process_authors, last_name, normalize, normalize_date
 
 
 @dataclass
@@ -16,10 +16,12 @@ class Paper:
 
     Fields:
         title (str): the title.
+        abstract (str): abstract.
         author_list (List[str]): the list of authors' *last names*
         expanded_author_list (List[List[str]]): the list of authors last name, each names being expanded to alternatives when necessary (eg composed names)
     """
     title: str = field(default='')
+    abstract: str = field(default='')
     author_list: List[str] = field(default_factory=list)
     expanded_author_list: List[List[str]] = field(default_factory=list)
 
@@ -35,9 +37,17 @@ class Submission(Paper):
         row (pd.Series): the pandas row parsed form the eJP report row.
 
     Fields:
+        title (str): the title.
+        abstract (str): abstract.
+        author_list (List[str]): the list of authors' *last names*
+        expanded_author_list (List[List[str]]): the list of authors last name, each names being expanded to alternatives when necessary (eg composed names)
         manuscript_nm (str): the manuscript number internal to the editorial system.
         editor (str): the handling editor.
         decision (str): the editorial decision associated with this manuscirpt number.
+        sub_date (str): submission date
+        min_time_to_secure_rev (int): time to secure first reviewers in days.
+        avg_time_to_secure_rev (float): average time to secure all reviewers.
+        referee_number (int): number of referees who returned a report.
     """
     manuscript_nm: str = field(default='')
     editor: str = field(default='')
@@ -53,11 +63,12 @@ class Submission(Paper):
         self.manuscript_nm: str = row['manuscript_nm']
         self.editor: str = row['editor']
         self.decision: str = row['decision']
-        self.sub_date: str = row['sub_date']
+        self.sub_date: str = normalize_date(str(row['sub_date']))  # normalize date to ISO format with date only
         self.min_time_to_secure_rev = row['min_time_to_secure_rev']
         self.avg_time_to_secure_rev = row['avg_time_to_secure_rev']
         self.referee_number = row['referee_number']
         self.title: str = normalize(row['title'], do=['ctrl'])  # remove control characters that are invariably toxic
+        self.abstract: str = row['abstract']
         self.author_list: List[str] = self.split_author_list(row['authors'])
         self.expanded_author_list: List[List[str]] = process_authors(self.author_list)
 
@@ -67,7 +78,7 @@ class Submission(Paper):
         Assumes that the names are comma separated with first name first and last name last, with no intervening commas.
         Cleans it up from 'decoration' added by eJP and removes duplicates, removes double spaces, non breaking spaces or empty entries.
         Last names are exctracted to INCLUDE a particle (de, von, saint, etc...)
-        The names are NOT yet normalized at this stage. 
+        The names are NOT yet normalized at this stage.
 
         Args:
             content (str): the author list as single string.
@@ -100,17 +111,21 @@ class Article(Paper):
         xml (Element): the XML Element parsed from the results returned by EuropePMC.
 
     Fields:
-       doi (str): the DOI of the published paper.
-       pmid (str): the PMID identifier in PubMed.
-       pub_type (str): whether a preprint, journal article, letter, book
-       pub_date (str): date of publishing
-       journal_name (str): the full-length journal title.
-       journal_abbr (str): the abbreviated journal title as it appears in PubMed.
-       abstract (str): the abstract.
-       citations (int): the citation number obtained from Scopus.
-       author_overlap_score (float): the degree of overalp of authors with the matching submission.
-       title_similarty_score (float): the similarity of the title with the title of the matching submission.
-       preprint_published_doi (str): for preprint only; the doi of the journal paper if already published.
+        title (str): the title.
+        abstract (str): abstract.
+        author_list (List[str]): the list of authors' *last names*
+        expanded_author_list (List[List[str]]): the list of authors last name, each names being expanded to alternatives when necessary (eg composed names)
+        doi (str): the DOI of the published paper.
+        pmid (str): the PMID identifier in PubMed.
+        pub_type (str): whether a preprint, journal article, letter, book
+        pub_date (str): date of publishing
+        journal_name (str): the full-length journal title.
+        journal_abbr (str): the abbreviated journal title as it appears in PubMed.
+        abstract (str): the abstract.
+        citations (int): the citation number obtained from Scopus.
+        author_overlap_score (float): the degree of overalp of authors with the matching submission.
+        title_similarty_score (float): the similarity of the title with the title of the matching submission.
+        preprint_published_doi (str): for preprint only; the doi of the journal paper if already published.
     """
     doi: str = field(default='')
     pmid: str = field(default='')
@@ -120,7 +135,6 @@ class Article(Paper):
     pub_date: str = field(default='')
     journal_name: str = field(default='')
     journal_abbr: str = field(default='')
-    abstract: str = field(default='')
     citations: int = field(default=None)
     strategy: str = field(default='')
     author_overlap_score: float = field(default=None)
@@ -141,7 +155,7 @@ class Article(Paper):
             self.journal_name = xml.findtext('./journalInfo/journal/title', '')
             self.journal_abbr = xml.findtext('./journalInfo/journal/medlineAbbreviation', '')
             self.is_preprint = False
-        self.pub_date = xml.findtext('./firstPublicationDate')
+        self.pub_date = normalize_date(xml.findtext('./firstPublicationDate'))  # normalize date format to ISO date only
         self.doi = xml.findtext('./doi', '')
         self.abstract = xml.findtext('./abstractText', '')
 
@@ -227,6 +241,7 @@ class Analysis(UserList):
             ('article.doi', 'doi'),
             ('article.pmid', 'pmid'),
             ('article.pub_date', 'pub_date'),
+            ('submission.abstract', 'original_abstract'),
             ('article.abstract', 'retrieved_abstract'),
             ('article.strategy', 'retrieval_strategy'),
             ('article.title_similarity_score', 'title_score'),

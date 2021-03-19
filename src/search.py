@@ -12,22 +12,20 @@ class EuropePMCEngine:
     """The EuropePMC search engine used to search published articles and preprints.
 
     Args:
-        start_year (int): the earliest publication year to consider in the search.
-        end_year (int): the latest (included) publication year to consider in the search.
         preprint_inclusion (PreprintInclusion): level of inclusion of preprints.
     """
     europe_pmc_service = EuropePMCService()
 
-    def __init__(self, start_year: int = 1970, end_year: int = 3000, preprint_inclusion: PreprintInclusion = PreprintInclusion.NO_PREPRINT):
-        self.start = str(start_year)
-        self.end = str(end_year)
+    def __init__(self, preprint_inclusion: PreprintInclusion = PreprintInclusion.NO_PREPRINT):
         self.preprint_inclusion = preprint_inclusion
 
-    def search_by_author(self, author_list: List[List[str]]) -> List[Article]:
+    def search_by_author(self, author_list: List[List[str]], min_pub_date: str = '1970-01-01', max_pub_date: str = '3000-01-01') -> List[Article]:
         """Search using the expanded author list.
 
         Args:
             author_list (List[List[str]]): the expanded list of authors with for each name alternatives.
+            min_pub_date (int): the earliest publication date to consider in the search.
+            max_pub_date (int): the latest publication date to consider in the search.
 
         Returns:
             (List[Article]): the list of articles retrieved
@@ -39,25 +37,35 @@ class EuropePMCEngine:
                 statement = " OR ".join([f'AUTH:"{au}"' for au in alternatives])
                 or_statements.append(f"({statement})")
             and_names = ' AND '.join(or_statements)
-            query = f"{and_names} AND PUB_YEAR:[{self.start} TO {self.end}]"
-            query = self.preprint_inclusion_decoration(query)
+            query = f"{and_names} AND FIRST_PDATE:[{min_pub_date} TO {max_pub_date}]"
+            query = self._preprint_inclusion_decoration(query)
             article_list = self._search(query)
         else:
             article_list = []
         return article_list
 
-    def search_by_title(self, title: str) -> List[Article]:
+    def search_by_title(self, title: str, min_pub_date: str = '1970-01-01', max_pub_date: str = '3000-01-01') -> List[Article]:
+        """Search using the title.
+
+        Args:
+            title (str): the title of the paper.
+            min_pub_date (int): the earliest publication date to consider in the search.
+            max_pub_date (int): the latest publication date to consider in the search.
+
+        Returns:
+            (List[Article]): the list of articles retrieved
+        """
         if title:
-            # total recall on positives is with unquoted title, do_not_remove='+', do=['ctrl', 'punctuation', 'html_tags', 'html_unescape']
+            # total recall on positives is best with unquoted title, do_not_remove='+', do=['ctrl', 'punctuation', 'html_tags', 'html_unescape']
             title = normalize(title, do_not_remove='+', do=['ctrl', 'punctuation', 'html_tags', 'html_unescape'])
-            query = f'TITLE:{title} AND PUB_YEAR:[{self.start} TO {self.end}]'
-            query = self.preprint_inclusion_decoration(query)
+            query = f'TITLE:{title} AND FIRST_PDATE:[{min_pub_date} TO {max_pub_date}]'
+            query = self._preprint_inclusion_decoration(query)
             article_list = self._search(query)
         else:
             article_list = []
         return article_list
 
-    def preprint_inclusion_decoration(self, query: str):
+    def _preprint_inclusion_decoration(self, query: str):
         if self.preprint_inclusion == PreprintInclusion.NO_PREPRINT:
             query += ' AND NOT (SRC:"PPR")'
         elif self.preprint_inclusion == PreprintInclusion.ONLY_PREPRINT:

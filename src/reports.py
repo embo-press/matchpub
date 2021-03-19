@@ -2,7 +2,6 @@ from pathlib import Path
 from argparse import ArgumentParser
 
 import pandas as pd
-import numpy as np
 import plotly.express as px
 from plotly.graph_objects import Figure
 # import plotly.graph_objects as go
@@ -21,8 +20,16 @@ class MatchPubReport:
         self.name = name
         self.report_dir = Path(report_dir)
         self.path = None
+        self.fix_time_dtype()
         report = self.generate_report()
         self.save_report(report)
+
+    def fix_time_dtype(self):
+        if self.found is not None:
+            self.found['sub_date'] = self.found['sub_date'].astype('datetime64[ns]')
+            self.found['pub_date'] = self.found['pub_date'].astype('datetime64[ns]')
+        if self.not_found is not None:
+            self.not_found['sub_date'] = self.not_found['sub_date'].astype('datetime64[ns]')
 
     def generate_report(self) -> Figure:
         NotImplementedError
@@ -89,6 +96,9 @@ class CitationDistribution(MatchPubReport):
             title="Citation distribution by decision type",
             color="decision",
             template="seaborn",
+        )
+        fig.update_traces(
+            marker={"opacity": 0.2}
         )
         return fig
 
@@ -181,7 +191,6 @@ class TimeToPublish(MatchPubReport):
         super().__init__(found, None, *args, **kwargs, name='time_to_publish')
 
     def generate_report(self):
-        self.found['pub_date'] = self.found['pub_date'].astype('datetime64[ns]')
         self.found['time_to_publish'] = self.found['pub_date'] - self.found['sub_date']
         self.found['time_to_publish'] = self.found['time_to_publish'].dt.days
         self.found.loc[self.found['time_to_publish'] < 0, 'time_to_publish'] = None
@@ -195,6 +204,9 @@ class TimeToPublish(MatchPubReport):
             title="Distribution of the time to publish by decision type",
             color="decision",
             template="seaborn",
+        )
+        fig.update_traces(
+            marker={"opacity": 0.2}
         )
         return fig
 
@@ -219,7 +231,7 @@ class CorrelCitationTimeToSecureReview(MatchPubReport):
             }
         )
         corr = df[['min_time_to_secure_rev', 'citations']].corr()
-        if 'citations' in corr:
+        if 'citations' in corr and 'min_time_to_secure_rev' in corr:
             logger.info(f"correlation matrix:\n{corr}")
             fig.add_annotation(
                 text=f"corr={corr.loc['min_time_to_secure_rev', 'citations']:.3f}",
@@ -337,7 +349,7 @@ if __name__ == "__main__":
     else:
         self_test()
 
-
+# https://www.w3schools.com/cssref/css_colors.asp
 # aggrnyl     agsunset    blackbody   bluered     blues       blugrn      bluyl       brwnyl
 # bugn        bupu        burg        burgyl      cividis     darkmint    electric    emrld
 # gnbu        greens      greys       hot         inferno     jet         magenta     magma

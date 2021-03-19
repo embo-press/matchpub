@@ -76,7 +76,7 @@ class Scanner:
 
     def retrieve(self, submissions: List[Submission]) -> Tuple[List[Result], List[Result]]:
         """Loops through a list of submissions and accumulates articles found and not found in PubMed Central.
-        A result keeps record of both the Submission and its cognate Article if any.
+        For each Submission, a Result keeps record of both the Submission and its cognate Article if any.
 
         Args:
             submissions (List[Submission]): a submission as imported from the editorial system report.
@@ -108,8 +108,9 @@ class Scanner:
         """
         title = submission.title
         authors = submission.expanded_author_list
+        sub_date = submission.sub_date
         logger.debug(f"Looking for {submission.title} by {submission.author_list}.")
-        search_res = self.search_engine.search_by_author(authors)
+        search_res = self.search_engine.search_by_author(authors, min_pub_date=sub_date)
         match = None
         if search_res:
             match, success = match_by_title(search_res, authors, title)
@@ -117,7 +118,7 @@ class Scanner:
         else:
             success = False
         if not success:
-            search_res = self.search_engine.search_by_title(title)
+            search_res = self.search_engine.search_by_title(title, min_pub_date=sub_date)
             if search_res:
                 match, success = match_by_author(search_res, authors, title)
                 match.strategy = 'search_by_title_match_by_author'
@@ -184,6 +185,8 @@ class Scanner:
            (Path): the path to the saved excel file.
         """
 
+        df = None
+        dest_path = None
         if results:
             analysis = Analysis(results)
             dest_path = Path(RESULTS) / f"{self.dest_basename}-{name}-{timestamp}.xlsx"  # change this to Path(RESULTS) / f"{dest_basename}-{name}-{timestamp}.xlsx"
@@ -195,10 +198,10 @@ class Scanner:
                 try:
                     df.to_excel(writer, encoding='utf-8')
                 except Exception as e:
-                    logger.error(f"error ({str(e)}) when exporting {name} to Excel file {dest_path}")
+                    logger.error(f"error ({e}) when exporting {name} to Excel file {dest_path}")
             logger.info(f"results {name} saved to {dest_path}")
         else:
-            logger.info(f"no results to be saved for {name} to {dest_path}.")
+            logger.info(f"no results to be saved for {name}.")
         return df, dest_path
 
     def reporting(self, found: pd.DataFrame, not_found: pd.DataFrame) -> List[Path]:

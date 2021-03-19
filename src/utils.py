@@ -131,9 +131,16 @@ def flat_unique_set(x: List[List[str]]) -> Set[str]:
     return set(flattened)
 
 
+def normalize_date(date: str, dayfirst=config.dayfirst) -> str:
+    """Normalizes dates to ISO yyyy-mm-dd format"""
+    d = parser.parse(date, dayfirst=dayfirst)
+    iso_date = d.date().isoformat()
+    return iso_date
+
+
 def time_diff(start: str, end: str, dayfirst=config.dayfirst) -> int:
     """Computes the time difference between end and start in days.
-    Time format is guessed. 
+    Time format is guessed.
 
     Args:
         start (str): start date.
@@ -146,5 +153,5 @@ def time_diff(start: str, end: str, dayfirst=config.dayfirst) -> int:
     start = parser.parse(start, dayfirst=dayfirst)
     end = parser.parse(end, dayfirst=dayfirst)
     diff = end - start
-    
+
     return diff.days
