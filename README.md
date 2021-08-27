@@ -2,7 +2,7 @@
 
 MatchPub2 scans the literature to retrieve papers that were handled by a journal and analyzes their fate (where they were published) and citation distribution as a function of the editorial decision made by the journal (accept, reject, ...).
 
-As input, MatchPub2 ingests the eJP report entitled "Editor Track Record Report" in Excel .xls format.
+As input, MatchPub2 ingests the data produced with the eJP SQL query `queries/matchpub.sql` in `.xls` format.
 
 Content of published papers is retrieved from EuropePMC.
 
@@ -24,8 +24,18 @@ Build the application:
 
 Download the eJP report into the `data/` directory (or `/data` from within the container since `data/` is bind mounted to the container's `/data` volume).
 
-
 ## Run a scan
+
+Run a scan from the command line. It can be convenient to do this from a tmux session:
+
+    docker-compose run --rm matchpub bash
+    python -m src.scan /data/to/ejp_report.xls> /results/to/result/> # use --no_citations to prevent inclusion of citation data.
+
+To obtain debug-level information run the scan with `-D` option.
+
+In addition to the specified `<result>.xlsx` file, MatchPub will save a `<result>-not-found.xlsx> file` with the list of papers that could not be matched. Graphical reports will be saved in `/reports`.
+
+Alternatively, send eJP reports by email and monitor email account to send back results:
 
 Start the app to scan an email account and to reply automatically to incoming emails with the eJP report delivered as attachment:
 
@@ -41,15 +51,6 @@ The application enters the 'idle' mode and monitors incoming emails:
     matchpub_1  | INFO - checking INBOX.matchpub
     matchpub_1  | INFO - INBOX.matchpub contains 4 messages, 0 recent.
     matchpub_1  | INFO - server entered idle mode.
-
-Alternatively run a scan from the command line. It can be convenient to do this from a tmux session:
-
-    docker-compose run --rm matchpub bash
-    python -m src.scan /data/to/ejp_report.xls> /results/to/result/> # use --no_citations to prevent inclusion of citation data.
-
-To obtain debug-level information run the scan with `-D` option.
-
-In addition to the specified `<result>.xlsx` file, MatchPub will save a `<result>-not-found.xlsx> file` with the list of papers that could not be matched. Graphical reports will be saved in `/reports`.
 
 
 ## Settings
