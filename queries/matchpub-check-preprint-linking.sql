@@ -28,9 +28,9 @@ FROM
             final.j_id = jou.j_id
             AND final.ms_id = sub.ms_id
             -- limit to accepted papers only
-            -- AND final.final_decision_ind = 1
+            AND final.final_decision_ind = 1
             -- alternative: limit to manu with a final accept or reject decision
-            AND final.final_decision_ind in (1, 4)  -- has a final decision Accepted or Rejected
+            -- AND final.final_decision_ind in (1, 4)  -- has a final decision Accepted or Rejected
             AND final.current_stage_id NOT IN (840, 850)  -- not halted not withdrawn, probably dispensable
         JOIN Person pEditor ON pEditor.p_id = sub.primary_ed_p_id
         -- all of the following gynmastics is to avoid duplicate last names 
@@ -94,9 +94,9 @@ WHERE
         (jou.j_abbrev = 'reviewcommons' AND final.ms_type_cde = 1)  -- articles
     )
     -- time interval based on QC
-    AND sub.qc_complete_dt BETWEEN '2018-01-01' AND '2018-12-31'
+    -- AND sub.qc_complete_dt BETWEEN '2018-01-01' AND '2018-12-31'
     -- time interval based on final decision date
-    -- AND final.final_decision_dt BETWEEN '2019-01-01' AND '2021-07-31'
+    AND final.final_decision_dt BETWEEN '2019-01-01' AND '2021-07-31'
 
 ORDER BY
     manuscript_nm
