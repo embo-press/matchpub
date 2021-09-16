@@ -13,4 +13,3 @@ beautifulsoup4
 plotly
 matplotlib
 kaleido
-IMAPClient==2.2.0
