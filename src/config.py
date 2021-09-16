@@ -41,6 +41,6 @@ class Config:
 config = Config(
     preprint_inclusion=PreprintInclusion.NO_PREPRINT,  # PreprintInclusion.NO_PREPRINT,
     include_citations=True,
-    input_description=descriptions.ejp_query_tool_matchpub_report,
+    input_description=descriptions.ejp_query_tool_matchpub_report,  # descriptions.ejp_editor_track_report,  # 
     dayfirst=False
 )

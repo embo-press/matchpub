@@ -5,7 +5,7 @@ The 'time_window' row should include a statement of the form 'between <date> and
 After the metadata row, the start of the actual data table will be search automatically by searching for a header row.
 The regex provided in 'header_signature' should match the begining of every header column in the same order. 
 At the minimum, columns should be provided to specify 'manuscript_nm', 'editor', 'decision', 'title', 'authors' for each submission.
-This information is menadory and the position index of these columns must be provided in 'feature_inde'x.'
+This information is manadory and the position index of these columns must be provided in 'feature_index.'
 """
 ejp_editor_track_report = {
     # names given to metadata info provided in first lines
@@ -37,7 +37,7 @@ ejp_editor_track_report = {
         r"sub", r".*decision", r".*decision", r".*status", r".*title",
         r"auth", r".*decision"
     ],
-    # regex to filter rows to include only decisions to be considered 
+    # regex to filter rows to include only decisions to be considered
     "decisions_considered": r"(accept)|(reject)|(suggest posting of reviews)"
 }
 

@@ -73,6 +73,7 @@ class EJPReport:
         for feature_name, idx in self.feature_index.items():
             reduced_data[feature_name] = data[idx]  # pick only the columns we need
         # TODO: fix the data type per column
+        # 
         mask = reduced_data['decision'].apply(lambda x: re.search(config.input_description['decisions_considered'], x, re.IGNORECASE) is not None)
         filtered_data = reduced_data[mask].copy()
         self.data = filtered_data

@@ -126,5 +126,5 @@ class ScopusService(Service):
                 if matches == 1:
                     citation_count = int(data['search-results']['entry'][0]['citedby-count'])
             else:
-                logger.error(f"Something went wrong ({response.status_code}) with {pmid}:\n{response.content}\n{response.headers}")
+                logger.error(f"Something went wrong ({response.status_code}) with pmid:{pmid}:\n{str(response.content)}\n{response.headers}")
         return citation_count

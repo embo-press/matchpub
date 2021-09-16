@@ -198,6 +198,7 @@ class Scanner:
                 try:
                     df.to_excel(writer, encoding='utf-8')
                 except Exception as e:
+                    import pdb; pdb.set_trace()
                     logger.error(f"error ({e}) when exporting {name} to Excel file {dest_path}")
             logger.info(f"results {name} saved to {dest_path}")
         else:

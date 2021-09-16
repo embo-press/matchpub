@@ -20,8 +20,11 @@ RUN pip install matplotlib
 RUN pip install kaleido
 RUN pip install python-dotenv
 RUN pip install IMAPClient==2.2.0
+RUN pip install notebook==6.2.0
 
 ARG user_id
 ARG group_id
-RUN useradd --uid $user_id --gid $group_id matchpub
-USER matchpub
+# RUN useradd --uid $user_id --gid $group_id matchpub
+# USER matchpub
+WORKDIR /app
+CMD ["jupyter", "notebook", "--port=8888", "--no-browser", "--ip=0.0.0.0", "--allow-root"]

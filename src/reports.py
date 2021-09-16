@@ -13,7 +13,7 @@ from . import logger, REPORTS
 
 
 class MatchPubReport:
-    def __init__(self, found: pd.DataFrame, not_found: pd.DataFrame, dest_path: str, report_dir: str = REPORTS, name='generic'):
+    def __init__(self, found: pd.DataFrame, not_found: pd.DataFrame, dest_path: str, report_dir: str = REPORTS, name: str = 'generic', save_to_disk: bool = True):
         self.found = found
         self.not_found = not_found
         self.basename = Path(dest_path).stem
@@ -21,8 +21,9 @@ class MatchPubReport:
         self.report_dir = Path(report_dir)
         self.path = None
         self.fix_time_dtype()
-        report = self.generate_report()
-        self.save_report(report)
+        self.fig = self.generate_report()
+        if save_to_disk:
+            self.save_report(self.fig)
 
     def fix_time_dtype(self):
         if self.found is not None:

@@ -61,14 +61,14 @@ class Submission(Paper):
 
     def __post_init__(self, row: pd.Series):
         self.manuscript_nm: str = row['manuscript_nm']
-        self.editor: str = row['editor']
-        self.decision: str = row['decision']
+        self.editor: str = row.get('editor', 'editor name not available')
+        self.decision: str = row['decision']  # which decision row?
         self.sub_date: str = normalize_date(str(row['sub_date']))  # normalize date to ISO format with date only
-        self.min_time_to_secure_rev = row['min_time_to_secure_rev']
-        self.avg_time_to_secure_rev = row['avg_time_to_secure_rev']
-        self.referee_number = row['referee_number']
+        self.min_time_to_secure_rev = row.get('min_time_to_secure_rev', 0)
+        self.avg_time_to_secure_rev = row.get('avg_time_to_secure_rev', 0)
+        self.referee_number = row.get('referee_number', 0)
         self.title: str = normalize(row['title'], do=['ctrl'])  # remove control characters that are invariably toxic
-        self.abstract: str = row['abstract']
+        self.abstract: str = normalize(row.get('abstract', 'abstract not available'))  # rare illegal character can block pd.ExcelWriter
         self.author_list: List[str] = self.split_author_list(row['authors'])
         self.expanded_author_list: List[List[str]] = process_authors(self.author_list)
 
