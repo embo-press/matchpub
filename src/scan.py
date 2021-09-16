@@ -17,7 +17,6 @@ from .net import BioRxivService, ScopusService
 from .decision import normalize_decision
 from .reports import (
     Overview, CitationDistribution, TimeToPublish,
-    CorrelCitationTimeToSecureReview,
     JournalDistributionPie, JournalDistributionTreeMap,
     PreprintOverview, UnlinkedPreprints,
 )
@@ -220,7 +219,6 @@ class Scanner:
         reports = [
             Overview(found, not_found, self.dest_basename),
             TimeToPublish(found, self.dest_basename),
-            CorrelCitationTimeToSecureReview(found, self.dest_basename),
             JournalDistributionPie(found, self.dest_basename),
             JournalDistributionTreeMap(found, self.dest_basename)
         ]

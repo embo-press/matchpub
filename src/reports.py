@@ -212,44 +212,6 @@ class TimeToPublish(MatchPubReport):
         return fig
 
 
-class CorrelCitationTimeToSecureReview(MatchPubReport):
-    def __init__(self, found, *args, **kwargs):
-        super().__init__(found, None, *args, **kwargs, name='correl_citation_time_to_reviewer')
-
-    def generate_report(self):
-        df = self.found[
-            (self.found['decision'] == 'accepted')
-            &
-            (self.found['min_time_to_secure_rev'] != '')
-        ].copy()
-        fig = px.scatter(
-            df,
-            x="min_time_to_secure_rev", log_x=False,
-            y="citations", log_y=False,
-            labels={
-                'min_time_to_secure_rev': 'time to secure first reviewer',
-                'citations': 'scopus citations'
-            }
-        )
-        corr = df[['min_time_to_secure_rev', 'citations']].corr()
-        if 'citations' in corr and 'min_time_to_secure_rev' in corr:
-            logger.info(f"correlation matrix:\n{corr}")
-            fig.add_annotation(
-                text=f"corr={corr.loc['min_time_to_secure_rev', 'citations']:.3f}",
-                xref="paper", yref="paper", xanchor='left', yanchor='top',
-                x=0.3, y=0.7,
-                showarrow=False,
-                bordercolor="white",
-                borderwidth=1,
-                borderpad=5,
-                bgcolor="lightsteelblue",
-                opacity=0.7
-            )
-        else:
-            logger.info('correlation matrix empty')
-        return fig
-
-
 class PreprintOverview(MatchPubReport):
 
     def __init__(self, found, *args, **kwargs):
@@ -346,7 +308,6 @@ if __name__ == "__main__":
         JournalDistributionTreeMap(found, input_path)
         Overview(found, not_found, input_path)
         TimeToPublish(found, input_path)
-        CorrelCitationTimeToSecureReview(found, input_path)
     else:
         self_test()
 
