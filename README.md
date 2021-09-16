@@ -35,30 +35,12 @@ To obtain debug-level information run the scan with `-D` option.
 
 In addition to the specified `<result>.xlsx` file, MatchPub will save a `<result>-not-found.xlsx> file` with the list of papers that could not be matched. Graphical reports will be saved in `/reports`.
 
-To rune the visualization in a Jupyter notebook:
+To run the interactive visualization in a Jupyter notebook:
 
-    docker run --rm -p 0.0.0.0:8888:8888 -v $PWD/data:/data -v $PWD/results:/results  -v $PWD/reports:/reports -v $PWD/:/app  matchpub
+    docker-compose up
+    # use link: http://127.0.0.1:8888/?token=<...> to access the notebook
 
-
-## Experimental
-
-Alternatively, send eJP reports by email and monitor email account to send back results:
-
-Start the app to scan an email account and to reply automatically to incoming emails with the eJP report delivered as attachment:
-
-    docker-compose run --rm matchpub
-
-The application enters the 'idle' mode and monitors incoming emails:
-
-    Starting matchpub2_matchpub_1 ... done
-    Attaching to matchpub2_matchpub_1
-    matchpub_1  | INFO - checking email from lemberge@embl.de
-    matchpub_1  | INFO - login successful
-    matchpub_1  | INFO - checking email from lemberge@embl.de
-    matchpub_1  | INFO - checking INBOX.matchpub
-    matchpub_1  | INFO - INBOX.matchpub contains 4 messages, 0 recent.
-    matchpub_1  | INFO - server entered idle mode.
-
+Shut down with Ctrl-C
 
 ## Settings
 
