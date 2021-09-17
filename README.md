@@ -38,7 +38,7 @@ In addition to the specified `<result>.xlsx` file, MatchPub will save a `<result
 To run the interactive visualization in a Jupyter notebook:
 
     docker-compose up
-    # use link: http://127.0.0.1:8888/?token=<...> to access the notebook
+    # use link: http://127.0.0.1:8888/?token=<...> to access the notebook in the browser
 
 Shut down with Ctrl-C
 
