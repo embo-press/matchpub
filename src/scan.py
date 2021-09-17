@@ -248,6 +248,7 @@ if __name__ == "__main__":
     include_citations = config.include_citations and not args.no_citations
     if debug:
         logger.setLevel(logging.DEBUG)
+        logger.debug("logging level DEBUG")
     else:
         logger.setLevel(logging.INFO)
     report_path = args.report

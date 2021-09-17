@@ -24,11 +24,11 @@ if not log_dir.exists():
     log_dir.mkdir()
 log_path = log_dir / log_file
 fh = logging.FileHandler(log_path)
-fh.setLevel(logging.INFO)
+# fh.setLevel(logging.INFO)
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
 sh = logging.StreamHandler()
-sh.setLevel(logging.INFO)
+# sh.setLevel(logging.INFO)
 sh.setFormatter(formatter)
 logger.addHandler(sh)
