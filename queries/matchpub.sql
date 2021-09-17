@@ -92,9 +92,11 @@ WHERE
         (jou.j_abbrev = 'embomolmed' AND final.ms_type_cde IN (10, 13, 28))  -- articles, reports
         OR
         (jou.j_abbrev = 'reviewcommons' AND final.ms_type_cde = 1)  -- articles
+        OR
+        (jou.j_abbrev = 'lsa' AND final.ms_type_cde IN (1, 2, 3, 13, 16, 19, 20, 29))  -- articles, methods, Resource, not used, not used, not used, 
     )
     -- time interval based on QC
-    AND sub.qc_complete_dt BETWEEN '2018-01-01' AND '2018-12-31'
+    AND sub.qc_complete_dt BETWEEN '2019-01-01' AND '2019-12-31'
     -- time interval based on final decision date
     -- AND final.final_decision_dt BETWEEN '2019-01-01' AND '2021-07-31'
 
