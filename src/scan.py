@@ -9,8 +9,8 @@ from tqdm import tqdm
 import pandas as pd
 
 from .config import PreprintInclusion, config
-from .models import Submission, Result, Analysis
-from .search import EuropePMCEngine
+from .models import PubMedArticle, Submission, Result, Analysis
+from .search import EuropePMCEngine, PubMedEngine
 from .ejp import EJPReport
 from .match import match_by_author, match_by_title
 from .net import BioRxivService, ScopusService
@@ -39,10 +39,10 @@ class Scanner:
         self,
         ejp_report: EJPReport,
         dest_basename: str,
-        SearchEngine: Callable = EuropePMCEngine,
-        CitationEngine: Callable = ScopusService,
-        preprint_inclusion: PreprintInclusion = config.preprint_inclusion,
-        include_citations: bool = config.include_citations
+        SearchEngine: Callable,
+        CitationEngine: Callable,
+        preprint_inclusion: PreprintInclusion,
+        include_citations: bool
     ):
         self.ejp_report = ejp_report
         self.dest_basename = dest_basename
@@ -242,6 +242,7 @@ if __name__ == "__main__":
     parser.add_argument("report", nargs="?", help="Path to the report with the list of submissions.")
     parser.add_argument("dest", nargs="?", default="results", help="Basename of the result files, without extension.")
     parser.add_argument("-D", "--debug", action="store_true", help="Debug mode.")
+    parser.add_argument("--use_pubmed", action="store_true", help="Use PubMed as search engine instead of EuropePMC, which is the default engine.")
     parser.add_argument("--no_citations", action="store_true", help="Flag to prevent queries to citation data.")
     args = parser.parse_args()
     debug = args.debug
@@ -253,14 +254,16 @@ if __name__ == "__main__":
         logger.setLevel(logging.INFO)
     report_path = args.report
     dest_basename = args.dest
+    use_pubmed = args.use_pubmed
     if report_path:
         ejp_report = EJPReport(report_path)
         logger.info(f"Analysis of {len(ejp_report)} submissions with settings: include_citations: {include_citations}, preprint_inclusion: {config.preprint_inclusion}.")
         logger.info(f"Results will be saved in {dest_basename}.")
+        engine = PubMedEngine if use_pubmed else EuropePMCEngine
         scanner = Scanner(
             ejp_report,
             dest_basename,
-            EuropePMCEngine,
+            engine,
             ScopusService,
             config.preprint_inclusion,
             include_citations

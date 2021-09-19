@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field, InitVar
 import dataclasses
 from collections import OrderedDict, UserDict, UserList
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import re
 
 from lxml.etree import Element
@@ -102,7 +102,7 @@ class Submission(Paper):
 
 
 @dataclass
-class Article(Paper):
+class EuropePMCArticle(Paper):
     """A published article retrieved from EuropePMC. Might become a specialize class later if we re-introduce PubMed as search engine.
     It assumes that EuropePMC results are returned in XML format using ResultType=Core
     In addition to the fields inherited from Paper, it contains publishing information such as doi, journal names etc...
@@ -170,6 +170,76 @@ class Article(Paper):
 
 
 @dataclass
+class PubMedArticle(Paper):
+    """A published article retrieved from PubMed.
+    It assumes that PubMed results are returned in XML format using ResultType=Core
+    In addition to the fields inherited from Paper, it contains publishing information such as doi, journal names etc...
+
+    Args:
+        xml (Element): the XML Element parsed from the results returned by PubMed.
+
+    Fields:
+        title (str): the title.
+        abstract (str): abstract.
+        author_list (List[str]): the list of authors' *last names*
+        expanded_author_list (List[List[str]]): the list of authors last name, each names being expanded to alternatives when necessary (eg composed names)
+        doi (str): the DOI of the published paper.
+        pmid (str): the PMID identifier in PubMed.
+        pub_type (str): whether a preprint, journal article, letter, book
+        pub_date (str): date of publishing
+        journal_name (str): the full-length journal title.
+        journal_abbr (str): the abbreviated journal title as it appears in PubMed.
+        abstract (str): the abstract.
+        citations (int): the citation number obtained from Scopus.
+        author_overlap_score (float): the degree of overalp of authors with the matching submission.
+        title_similarty_score (float): the similarity of the title with the title of the matching submission.
+        preprint_published_doi (str): for preprint only; the doi of the journal paper if already published.
+    """
+    doi: str = field(default='')
+    pmid: str = field(default='')
+    pub_type: List[str] = field(default_factory=list)
+    is_preprint: bool = field(default=None)
+    preprint_published_doi: float = field(default=None)
+    pub_date: str = field(default='')
+    journal_name: str = field(default='')
+    journal_abbr: str = field(default='')
+    citations: int = field(default=None)
+    strategy: str = field(default='')
+    author_overlap_score: float = field(default=None)
+    title_similarity_score: float = field(default=None)
+
+    xml: InitVar[Element] = None
+
+    def __post_init__(self, xml: Element):
+        medline_citation = xml.find('MedlineCitation')
+        article = medline_citation.find('Article')
+        self.pmid = medline_citation.findtext('PMID', '')
+        self.pub_type = [t.text.lower() for t in article.findall('PublicationTypeList/PublicationType', [])]
+        self.is_preprint = 'preprint' in self.pub_type
+        self.journal_name = article.findtext('Journal/Title', '')
+        self.journal_abbr = article.findtext('Journal/ISOAbbreviation', '')
+        date = medline_citation.xpath('ArticleDate | DateRevised')
+        if date:
+            date = date[0]
+        else:
+            import pdb; pdb.set_trace()
+        year = date.findtext('Year', '')
+        month = date.findtext('Month', '')
+        day = date.findtext('Day', '')
+        self.pub_date = '-'.join([year, month, day])   # iso format
+        self.doi = article.findtext('ELocationID[@EIdType="doi"]', '')
+        self.abstract = article.findtext('Abstract', '')
+        self.title = article.findtext('ArticleTitle', '')
+        self.author_list = [au.text for au in article.findall('AuthorList/Author/LastName')]
+        self.expanded_author_list = process_authors(self.author_list)
+
+    def __str__(self):
+        authors = ", ".join(self.author_list)
+        s = f"{authors} ({self.year}). {self.title} {self.journal_name} {self.doi}"
+        return s
+
+
+@dataclass
 class Result:
     """The matched article and submission resulting from the search and matching algorithm.
 
@@ -178,7 +248,7 @@ class Result:
         article (Article): the matching published article.
     """
     submission: Submission = field(default=None)
-    article: Article = field(default=None)
+    article: Union[PubMedArticle, EuropePMCArticle] = field(default=None)
 
 
 class ResultDict(UserDict):

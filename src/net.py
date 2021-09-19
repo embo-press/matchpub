@@ -1,13 +1,14 @@
 
 from typing import Dict, List
 from time import sleep
+import pandas as pd
 
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from lxml.etree import fromstring, ParseError
 
-from .models import Article
+from .models import PubMedArticle, EuropePMCArticle
 from . import logger, SCOPUS_API_KEY
 
 
@@ -60,7 +61,7 @@ class EuropePMCService(Service):
         "Content-type": "application/x-www-form-urlencoded"
     }
 
-    def search(self, query: str, limit: int = 5) -> List[Article]:
+    def search(self, query: str, limit: int = 5) -> List[EuropePMCArticle]:
         article_list = []
         params = {
             'query': query,
@@ -68,17 +69,65 @@ class EuropePMCService(Service):
             'format': 'xml',
             'pageSize': limit,
         }
-        response = self.retry_request.post(self.REST_URL, data=params, headers=self.HEADERS)
+        response = self.retry_request.post(self.REST_URL, data=params, headers=self.HEADERS)  # EuropePMC accepts only POST
         if response.status_code == 200:
             try:
                 xml = fromstring(response.content)
                 articles_xml = xml.xpath('.//result')
-                article_list = [Article(xml=x) for x in articles_xml]
+                article_list = [EuropePMCArticle(xml=x) for x in articles_xml]
                 logger.debug(f"{len(article_list)} results found.")
             except ParseError:
                 logger.error(f"XML parse error with: {params}")
         else:
             logger.error(f"failed query ({response.status_code}) with: {params}")
+        return article_list
+
+
+class PubMedService(Service):
+
+    REST_URL_ESEARCH = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi'
+    REST_URL_EFETCH = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'
+
+    HEADERS = {
+        "From": "thomas.lemberger@embo.org",
+        "Content-type": "application/x-www-form-urlencoded"
+    }
+
+    def search(self, query: str, limit: int = 5) -> List[PubMedArticle]:
+        article_list = []
+        params_esearch = {
+            'term': query,
+            'db': 'pubmed',
+            'usehistory': 'y',
+        }
+        response_esearch = self.retry_request.get(self.REST_URL_ESEARCH, params=params_esearch, headers=self.HEADERS)
+        if response_esearch.status_code == 200:
+            try:
+                xml = fromstring(response_esearch.content)
+            except ParseError:
+                logger.error(f"XML parse error in esearch with: {params_esearch}")
+            query_key = xml.findtext('QueryKey')
+            web_env = xml.findtext('WebEnv')
+            params_efetch = {
+                'db': 'pubmed',
+                'query_key': query_key,
+                'WebEnv': web_env,
+                'retmode': 'xml',
+                'retmax': limit
+            }
+            response_efetch = self.retry_request.get(self.REST_URL_EFETCH, params=params_efetch, headers=self.HEADERS)
+            if response_efetch.status_code == 200:
+                try:
+                    xml = fromstring(response_efetch.content)
+                    articles_xml = xml.xpath('PubmedArticle')
+                    article_list = [PubMedArticle(xml=x) for x in articles_xml]
+                    logger.debug(f"{len(article_list)} results found.")
+                except ParseError:
+                    logger.error(f"XML parse error in efetch with: {params_efetch}")
+            else:
+                logger.error(f"failed efetch query ({response_efetch.status_code}, {response_efetch.text}) with: {params_efetch}")
+        else:
+            logger.error(f"failed esearch query ({response_esearch.status_code}, {response_esearch.text}) with: {params_esearch}")
         return article_list
 
 
