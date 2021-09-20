@@ -58,4 +58,16 @@ The path to a customized description of the format of the input file can be spec
 
 The input description file is expected to be a Python dictionary. The default description and its documentation is provided in `src/description.py`.
 
+## Reports
 
+### Analysis overview
+
+![Overview report](./img/overview-example.png)
+
+### Manuscript fate
+
+![Fate tapestry](./img/fate-tapestry.png)
+
+### Citation distribution
+
+![Citation distribution](./img/citation-distro-1.png)
