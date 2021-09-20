@@ -80,14 +80,14 @@ class Overview(MatchPubReport):
         return fig
 
 
-class CitationDistribution(MatchPubReport):
+class CitationDistributionViolin(MatchPubReport):
 
     def __init__(self, found, *args, **kwargs):
-        super().__init__(found, None, *args, **kwargs, name='citation_distribution')
+        super().__init__(found, None, *args, **kwargs, name='citation_distribution_violin')
 
     def generate_report(self) -> Figure:
         fig = px.violin(
-            self.found,
+            self.found[self.found['citations'] >= 0.],
             y="citations",
             x="decision",
             category_orders={"decision": ['accepted', 'rejected before review', 'rejected after review']},
@@ -99,7 +99,48 @@ class CitationDistribution(MatchPubReport):
             template="seaborn",
         )
         fig.update_traces(
-            marker={"opacity": 0.2}
+            marker={
+                "opacity": 0.4,
+                "size":5,
+                "symbol": 'circle-open'  # https://plotly.com/python/marker-style/#custom-marker-symbols
+            },
+            jitter=0.6
+        )
+        fig.update_layout(
+            height=800
+        )
+        return fig
+
+
+class CitationDistributionHisto(MatchPubReport):
+
+    def __init__(self, found, *args, **kwargs):
+        super().__init__(found, None, *args, **kwargs, name='citation_distribution_histo_with_rug')
+
+    def generate_report(self) -> Figure:
+        fig = px.histogram(
+            self.found[self.found['citations'] >= 0.],
+            'citations',
+            nbins=150,
+            color='decision',
+            histfunc='count',
+            histnorm='probability',
+            opacity=0.8,
+            marginal='rug',
+            category_orders={'decision': ['rejected after review', 'rejected before review', 'accepted']},
+            color_discrete_map={
+                'accepted': 'forestgreen',
+                'rejected before review': 'crimson',
+                'rejected after review': 'orange'
+            }
+        )
+        fig.update_layout(
+            barmode='overlay',
+            title={
+                'text': "Citation distribution by decision type.",
+                'xanchor': 'center',
+                'x': 0.5
+            }
         )
         return fig
 
