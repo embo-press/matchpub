@@ -68,6 +68,10 @@ The input description file is expected to be a Python dictionary. The default de
 
 ![Fate tapestry](./img/fate-tapestry.png)
 
-### Citation distribution
+### Citation distribution (violin plots)
 
-![Citation distribution](./img/citation-distro-1.png)
+![Citation distribution violin plot](./img/citation-distro-1.png)
+
+## Citation distribution (histogram)
+
+![Citation distribution histogram](./img/citation-distro-2.png)
