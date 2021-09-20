@@ -9,14 +9,15 @@ from tqdm import tqdm
 import pandas as pd
 
 from .config import PreprintInclusion, config
-from .models import PubMedArticle, Submission, Result, Analysis
+from .models import Submission, Result, Analysis
 from .search import EuropePMCEngine, PubMedEngine
 from .ejp import EJPReport
 from .match import match_by_author, match_by_title
 from .net import BioRxivService, ScopusService
 from .decision import normalize_decision
 from .reports import (
-    Overview, CitationDistribution, TimeToPublish,
+    Overview, CitationDistributionViolin, CitationDistributionHisto,
+    TimeToPublish,
     JournalDistributionPie, JournalDistributionTreeMap,
     PreprintOverview, UnlinkedPreprints,
 )
@@ -223,7 +224,8 @@ class Scanner:
             JournalDistributionTreeMap(found, self.dest_basename)
         ]
         if self.include_citations:
-            reports.append(CitationDistribution(found, self.dest_basename))
+            reports.append(CitationDistributionViolin(found, self.dest_basename))
+            reports.append(CitationDistributionHisto(found, self.dest_basename))
         if self.include_preprints:
             reports.append(PreprintOverview(found, self.dest_basename))
             reports.append(UnlinkedPreprints(found, self.dest_basename))

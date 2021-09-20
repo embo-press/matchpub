@@ -329,7 +329,7 @@ class UnlinkedPreprints(MatchPubReport):
 
 def self_test():
     found = pd.read_excel('/results/test_results.xlsx', header=0)
-    CitationDistribution(found, '/test_cite_distro')
+    CitationDistributionViolin(found, '/test_cite_distro_violin')
     JournalDistributionTreeMap(found, '/test_jou_distro')
 
 
@@ -345,7 +345,8 @@ if __name__ == "__main__":
         not_found = pd.read_excel(not_found_path)
         PreprintOverview(found, input_path)
         UnlinkedPreprints(found, input_path)
-        CitationDistribution(found, input_path)
+        CitationDistributionViolin(found, input_path)
+        CitationDistributionHisto(found, input_path)
         JournalDistributionTreeMap(found, input_path)
         Overview(found, not_found, input_path)
         TimeToPublish(found, input_path)
