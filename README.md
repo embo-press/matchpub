@@ -52,11 +52,11 @@ Some settings can be changed in `src/config.py`.
 
 To scan only preprints, set `preprint_inclusion` to `PreprintInclusion.ONLY_PREPRINT`.
 
-To avoid the inclusion of citation data, set `include_citations` to `False` or invoke the src.scan with the `--no_citations` option.
+To avoid the inclusion of citation data, set `include_citations` to `False` or invoke `src.scan` with the `--no_citations` option.
 
-The path to a customized description of the format of the input file can be specified with `input_description_file`.
+A customizable description of the format of the input file can be specified with `input_description_file`.
 
-The input description file is expected to be a Python dictionary. The default description and its documentation is provided in `src/description.py`.
+Descriptions of input files and their documentation are provided in `src/description.py`.
 
 ## Reports
 
