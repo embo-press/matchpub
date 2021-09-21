@@ -14,16 +14,22 @@ from . import logger, REPORTS
 
 class MatchPubReport:
     def __init__(self, found: pd.DataFrame, not_found: pd.DataFrame, dest_path: str, report_dir: str = REPORTS, name: str = 'generic', save_to_disk: bool = True):
-        self.found = found
-        self.not_found = not_found
+        if found is not None:
+            self.found = found.copy()
+            self.found['count'] = 1  # adding a column to count
+        else:
+            self.found = None
+        if not_found is not None:
+            self.not_found = not_found.copy()
+            self.not_found['count'] = 1  # adding a column to count
+        else:
+            self.not_found = None
         self.basename = Path(dest_path).stem
         self.name = name
         self.report_dir = Path(report_dir)
         self.path = None
+        self.fig = None
         self.fix_time_dtype()
-        self.fig = self.generate_report()
-        if save_to_disk:
-            self.save_report(self.fig)
 
     def fix_time_dtype(self):
         if self.found is not None:
@@ -34,6 +40,12 @@ class MatchPubReport:
 
     def generate_report(self) -> Figure:
         NotImplementedError
+
+    def run(self, save_to_disk: bool = True) -> Figure:
+        self.fig = self.generate_report()
+        if save_to_disk:
+            self.save_report(self.fig)
+        return self.fig
 
     def save_report(self, fig: Figure):
         if fig is not None:
@@ -51,7 +63,6 @@ class Overview(MatchPubReport):
         self.found['status'] = 'retrieved from PMC'
         self.not_found['status'] = 'not retrieved from PMC'
         overview = pd.concat([self.found, self.not_found])
-        overview['count'] = 1
         overview['name'] = 'Overview'
         fig = px.treemap(
             overview,
@@ -97,6 +108,15 @@ class CitationDistributionViolin(MatchPubReport):
             title="Citation distribution by decision type",
             color="decision",
             template="seaborn",
+            hover_name="journal",
+            hover_data={
+                "citations": False,
+                "decision": False,
+                "doi": True,
+                "retrieved_title": True,
+                "original_title": True,
+                "manuscript_nm": True,
+            }
         )
         fig.update_traces(
             marker={
@@ -104,7 +124,7 @@ class CitationDistributionViolin(MatchPubReport):
                 "size":5,
                 "symbol": 'circle-open'  # https://plotly.com/python/marker-style/#custom-marker-symbols
             },
-            jitter=0.6
+            jitter=0.6,
         )
         fig.update_layout(
             height=800
@@ -148,21 +168,16 @@ class CitationDistributionHisto(MatchPubReport):
 class JournalDistributionAllRejects(MatchPubReport):
     def __init__(self, found, *args, **kwargs):
         super().__init__(found, None, *args, **kwargs)
-
-    def all_rejects(self) -> pd.DataFrame:
-        self.found['count'] = 1  # adding a column to count
-        all_rejections = self.found[(self.found.decision == 'rejected before review') | (self.found.decision == 'rejected after review')]
-        return all_rejections
+        self.all_rejects = self.found[(self.found['decision'] == 'rejected before review') | (self.found['decision'] == 'rejected after review')]
 
 
 class JournalDistributionPie(JournalDistributionAllRejects):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, name='journal_distribution_pie')
+    def __init__(self, found, *args, **kwargs):
+        super().__init__(found, *args, **kwargs, name='journal_distribution_pie')
 
     def generate_report(self, max_slices: int = 21):
         max_slices = max_slices if len(self.found) > max_slices else len(self.found)
-        all_rejections = self.all_rejects()
-        grouped = all_rejections[['journal', 'count']].groupby("journal").count()  # journal becomes the index
+        grouped = self.all_rejects[['journal', 'count']].groupby("journal").count()  # journal becomes the index
         df = pd.DataFrame(grouped.reset_index())  # reset_index() will insert back column journal!
         df.sort_values(by='count', ascending=False, inplace=True)  # to dispaly nice and to cut at maximum slices
         df.reset_index(inplace=True)  # so that index follows new sorting order and loc[] below works as expected
@@ -196,15 +211,14 @@ class JournalDistributionPie(JournalDistributionAllRejects):
 
 class JournalDistributionTreeMap(JournalDistributionAllRejects):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, name='journal_distribution_tree_map')
+    def __init__(self, found, *args, **kwargs):
+        super().__init__(found, *args, **kwargs, name='journal_distribution_tree_map')
 
     def generate_report(self):
-        all_rejects = self.all_rejects()
         fig = None
-        if len(all_rejects) > 0:
+        if len(self.all_rejects) > 0:
             fig = px.treemap(
-                all_rejects,
+                self.all_rejects,
                 path=['decision', 'journal'],
                 values='count',
                 color='journal',
@@ -223,7 +237,66 @@ class JournalDistributionTreeMap(JournalDistributionAllRejects):
                 title_font_size=14,
             )
         else:
-            logger.info(f"no tree map for all rejections (len {len(all_rejects)})")
+            logger.info(f"no tree map for all rejections (len {len(self.all_rejects)})")
+        return fig
+
+
+class SyntheticJournal(JournalDistributionAllRejects):
+
+    def __init__(self, *args, n_top: int = 3, **kwargs):
+        super().__init__(*args, **kwargs, name='synthetic journal with rescued rejections')
+        self.n_top = n_top
+
+    def generate_report(self):
+        grouped = self.all_rejects[['journal', 'count']].groupby("journal").count()  # journal becomes the index
+        external_jou_names = grouped.sort_values(by='count', ascending=False)
+        selected_external_journal_names = list(external_jou_names[:self.n_top].index)
+        external_journals = self.found[self.found['journal'].isin(selected_external_journal_names)].copy()
+        my_journal = self.found[self.found['decision'] == 'accepted'].copy()
+        virtual_journal = pd.concat([external_journals, my_journal])
+        external_journals['category'] = 'Assemblage'
+        virtual_journal['category'] = 'Cuvee'
+        my_journal['category'] =  'Grand Cru'
+        fig = px.violin(
+            pd.concat([external_journals, virtual_journal, my_journal]),
+            y="citations",
+            x="category",
+            category_orders={"category": ['Grand Cru', 'Cuvee', 'Assemblage']},
+            # color_discrete_sequence=px.colors.qualitative.G10,
+            color_discrete_map={"Grand Cru": "lime", "Cuvee": "red", 'Assemblage': "orange"},
+            points="all",
+            title=f"Citation distributions",
+            color="category",
+            template="plotly_dark",
+            hover_name="journal",
+            hover_data={
+                "citations": False,
+                "decision": False,
+                "category": False,
+                "doi": True,
+                "retrieved_title": True,
+                "original_title": True,
+                "manuscript_nm": True,
+            }
+        )
+        fig.update_traces(
+            marker={
+                "opacity": 0.4,
+                "size": 5,
+                "symbol": 'circle-open'  # https://plotly.com/python/marker-style/#custom-marker-symbols
+            },
+            jitter=0.6,
+            meanline_visible=True,
+        )
+        fig.update_layout(
+            height=800
+        )
+        fig.update_xaxes(
+            tickfont_size=24
+        )
+        fig.update_yaxes(
+            tickfont_size=24
+        )
         return fig
 
 
@@ -260,7 +333,6 @@ class PreprintOverview(MatchPubReport):
 
     def generate_report(self):
         preprints = self.found[self.found.is_preprint].copy()
-        preprints["count"] = 1
         preprints["published"] = "not yet published"
         preprints.loc[preprints["preprint_published_doi"].notnull(), "published"] = "published"
         fig = None
@@ -329,8 +401,8 @@ class UnlinkedPreprints(MatchPubReport):
 
 def self_test():
     found = pd.read_excel('/results/test_results.xlsx', header=0)
-    CitationDistributionViolin(found, '/test_cite_distro_violin')
-    JournalDistributionTreeMap(found, '/test_jou_distro')
+    CitationDistributionViolin(found, '/test_cite_distro_violin').run()
+    JournalDistributionTreeMap(found, '/test_jou_distro').run()
 
 
 if __name__ == "__main__":
@@ -343,13 +415,14 @@ if __name__ == "__main__":
     if input_path:
         found = pd.read_excel(input_path)
         not_found = pd.read_excel(not_found_path)
-        PreprintOverview(found, input_path)
-        UnlinkedPreprints(found, input_path)
-        CitationDistributionViolin(found, input_path)
-        CitationDistributionHisto(found, input_path)
-        JournalDistributionTreeMap(found, input_path)
-        Overview(found, not_found, input_path)
-        TimeToPublish(found, input_path)
+        PreprintOverview(found, input_path).run()
+        UnlinkedPreprints(found, input_path).run()
+        CitationDistributionViolin(found, input_path).run()
+        CitationDistributionHisto(found, input_path).run()
+        SyntheticJournal(found, input_path).run()
+        JournalDistributionTreeMap(found, input_path).run()
+        Overview(found, not_found, input_path).run()
+        TimeToPublish(found, input_path).run()
     else:
         self_test()
 

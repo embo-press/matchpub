@@ -19,6 +19,7 @@ from .reports import (
     Overview, CitationDistributionViolin, CitationDistributionHisto,
     TimeToPublish,
     JournalDistributionPie, JournalDistributionTreeMap,
+    SyntheticJournal,
     PreprintOverview, UnlinkedPreprints,
 )
 from . import logger, RESULTS
@@ -221,7 +222,8 @@ class Scanner:
             Overview(found, not_found, self.dest_basename),
             TimeToPublish(found, self.dest_basename),
             JournalDistributionPie(found, self.dest_basename),
-            JournalDistributionTreeMap(found, self.dest_basename)
+            JournalDistributionTreeMap(found, self.dest_basename),
+            SyntheticJournal(found, self.dest_basename),
         ]
         if self.include_citations:
             reports.append(CitationDistributionViolin(found, self.dest_basename))
@@ -229,6 +231,10 @@ class Scanner:
         if self.include_preprints:
             reports.append(PreprintOverview(found, self.dest_basename))
             reports.append(UnlinkedPreprints(found, self.dest_basename))
+        # run all the reports which save themselves to disk
+        for r in reports:
+            r.run()
+        # collect the paths to saved reports
         filepaths = [rep.path for rep in reports if rep.path is not None]
         return filepaths
 
