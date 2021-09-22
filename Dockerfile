@@ -30,5 +30,3 @@ ARG group_id
 # RUN useradd --uid $user_id --gid $group_id matchpub
 # USER matchpub
 WORKDIR /app
-
-CMD ["jupyter", "notebook", "--port=8888", "--no-browser", "--ip=0.0.0.0", "--allow-root"]

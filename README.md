@@ -62,16 +62,35 @@ Descriptions of input files and their documentation are provided in `src/descrip
 
 ### Analysis overview
 
+This reports provides an overview of the 'quality' of the scan. It main purpose is visualize the fraction of papers that could be retrieved.
+
 ![Overview report](./img/overview-example.png)
 
 ### Manuscript fate
+
+This reports shows the journals in which rejected papers were ultimately published. The size of the sectors is proportional to the number of papers.
 
 ![Fate tapestry](./img/fate-tapestry.png)
 
 ### Citation distribution (violin plots)
 
+This reports plots Scopus citation data for papers accepted, rejected before review and rejected after review. With the interactive HTML version of this report, hovering over a point displays information on the journal, doi, title and manuscript number of the paper.
+
 ![Citation distribution violin plot](./img/citation-distro-1.png)
 
 ## Citation distribution (histogram)
 
+This report displays citation data for papers accepted, rejected before review and rejected after review. The data is split into 150 citation bins and displayed as a histogram distribution.
+
 ![Citation distribution histogram](./img/citation-distro-2.png)
+
+
+## The Grand Cru experiment
+
+This is a less serious report...
+
+The papers of the  journal (the "Grand Cru") are merged with an "Assemblage" of rejected papers that were ultimately published in the external journals to obtain a 'synthetic journal' named "Cuvee". The N (default `n_top=3`) largest destination external journals shown in the 'manuscript fate' report are used.
+
+The impact of this 'merger' is visualized by comparing the disribution of the 'Grand Cru', 'Cuvee' and 'Assemblage'.
+
+![Synthetic journal](./img/cuvee.png)

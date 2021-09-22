@@ -6,6 +6,7 @@ import plotly.express as px
 from plotly.graph_objects import Figure
 # import plotly.graph_objects as go
 
+from .config import PreprintInclusion, config
 from . import logger, REPORTS
 
 # import matplotlib.pyplot as plt
@@ -415,14 +416,16 @@ if __name__ == "__main__":
     if input_path:
         found = pd.read_excel(input_path)
         not_found = pd.read_excel(not_found_path)
-        PreprintOverview(found, input_path).run()
-        UnlinkedPreprints(found, input_path).run()
-        CitationDistributionViolin(found, input_path).run()
-        CitationDistributionHisto(found, input_path).run()
-        SyntheticJournal(found, input_path).run()
         JournalDistributionTreeMap(found, input_path).run()
         Overview(found, not_found, input_path).run()
         TimeToPublish(found, input_path).run()
+        if config.include_citations:
+            CitationDistributionViolin(found, input_path).run()
+            CitationDistributionHisto(found, input_path).run()
+            SyntheticJournal(found, input_path).run()
+        if config.preprint_inclusion in [PreprintInclusion.WITH_PREPRINT, PreprintInclusion.ONLY_PREPRINT]:
+            PreprintOverview(found, input_path).run()
+            UnlinkedPreprints(found, input_path).run()
     else:
         self_test()
 
