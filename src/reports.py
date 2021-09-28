@@ -1,5 +1,6 @@
 from pathlib import Path
 from argparse import ArgumentParser
+from typing import List
 
 import pandas as pd
 import plotly.express as px
@@ -244,20 +245,26 @@ class JournalDistributionTreeMap(JournalDistributionAllRejects):
 
 class SyntheticJournal(JournalDistributionAllRejects):
 
-    def __init__(self, *args, n_top: int = 3, **kwargs):
+    def __init__(self, *args, n_top: int = 3, selected: List = [], **kwargs):
         super().__init__(*args, **kwargs, name='synthetic journal with rescued rejections')
         self.n_top = n_top
+        self.selected_external_journal_names = selected
+        all_journals = list(self.all_rejects['journal'].unique())
+        all_journals.sort()
+        for j in self.selected_external_journal_names:
+            assert j in all_journals, f"journal '{j} is not a recipent of rejected papers; use one of this list\n{', '.join(all_journals)}"
 
     def generate_report(self):
         grouped = self.all_rejects[['journal', 'count']].groupby("journal").count()  # journal becomes the index
-        external_jou_names = grouped.sort_values(by='count', ascending=False)
-        selected_external_journal_names = list(external_jou_names[:self.n_top].index)
-        external_journals = self.found[self.found['journal'].isin(selected_external_journal_names)].copy()
+        if not self.selected_external_journal_names:
+            external_jou_names = grouped.sort_values(by='count', ascending=False)
+            self.selected_external_journal_names = list(external_jou_names[:self.n_top].index)
+        external_journals = self.found[self.found['journal'].isin(self.selected_external_journal_names)].copy()
         my_journal = self.found[self.found['decision'] == 'accepted'].copy()
         virtual_journal = pd.concat([external_journals, my_journal])
         external_journals['category'] = 'Assemblage'
         virtual_journal['category'] = 'Cuvee'
-        my_journal['category'] =  'Grand Cru'
+        my_journal['category'] = 'Grand Cru'
         fig = px.violin(
             pd.concat([external_journals, virtual_journal, my_journal]),
             y="citations",
@@ -298,6 +305,12 @@ class SyntheticJournal(JournalDistributionAllRejects):
         fig.update_yaxes(
             tickfont_size=24
         )
+        # fig.add_annotation(
+        #     x=1.1, y=0.95, xref="paper", yref="paper",
+        #     text=f"Average number<br>of transfers:<br>{avg_transfer:.2f}",
+        #     showarrow=False,
+        #     font={"size": 12}
+        # )
         return fig
 
 
