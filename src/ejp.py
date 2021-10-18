@@ -20,14 +20,14 @@ class EJPReport:
     The expected order of the metadata rows is given in the argument metadata_keys.
     After the metadata row, the start of the actual data tabel will be search automatically by screening for a header row.
     The headers should all match the regex provided in header_signature.
-    At the minimum, columns should be provided to specify 'manuscript_nm', 'editor', 'decision', 'title', 'authors' for each submission.
+    At the minimum, columns should be provided to specify 'manuscript_nm', 'editor', 'journal_decision', 'title', 'authors' for each submission.
     The position index of these columns is provided in feature_index.
 
     Args:
         filepath (str): the path to the report excel file.
         metadata_keys (List[str]): the ordered list of metadata fields to be captured from the initial rows in the table.
         header_signature (List[str]): a list of regex that will be used to identify the header row.
-        feature_index (Dict[str, int]): map the required feature ('manuscript_nm', 'editor', 'decision', 'title', 'authors') to column index (zero indexed) in the table.
+        feature_index (Dict[str, int]): map the required feature ('manuscript_nm', 'editor', 'journal_decision', 'title', 'authors') to column index (zero indexed) in the table.
     """
     def __init__(
         self,
@@ -73,8 +73,7 @@ class EJPReport:
         for feature_name, idx in self.feature_index.items():
             reduced_data[feature_name] = data[idx]  # pick only the columns we need
         # TODO: fix the data type per column
-        # 
-        mask = reduced_data['decision'].apply(lambda x: re.search(config.input_description['decisions_considered'], x, re.IGNORECASE) is not None)
+        mask = reduced_data['journal_decision'].apply(lambda x: re.search(config.input_description['decisions_considered'], x, re.IGNORECASE) is not None)
         filtered_data = reduced_data[mask].copy()
         self.data = filtered_data
 

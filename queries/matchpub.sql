@@ -5,12 +5,7 @@ SELECT DISTINCT
     sub.cmpt_ms_nm AS manuscript_nm,
     pEditor.last_nm AS editor,
     sub.qc_complete_dt AS sub_date,
-    CASE
-        WHEN (final.final_decision_ind = 1) THEN 'accepted'
-        WHEN (final.final_decision_ind = 4) AND (final.ms_rev_no = 0) THEN 'rejected before review'
-        WHEN (final.final_decision_ind = 4) AND (final.ms_rev_no > 0) THEN 'rejected after review'
-        ELSE 'Undefined decision ' + CONVERT(NVARCHAR, final.final_decision_ind) + ' at revision ' + CONVERT(varchar, final.ms_rev_no)
-    END AS decision,
+    final.journal_decision_txt AS journal_decision, -- this will allow filtering and aggreg by regex
     CAST(final.ms_title AS NVARCHAR(4000)) AS title,
     author_list.last_names AS authors,
     CAST(final.abstract AS NVARCHAR(4000)) AS abstract,
@@ -29,8 +24,8 @@ FROM
             AND final.ms_id = sub.ms_id
             -- limit to accepted papers only
             -- AND final.final_decision_ind = 1
-            -- alternative: limit to manu with a final accept or reject decision
-            AND final.final_decision_ind in (1, 4)  -- has a final decision Accepted or Rejected
+            -- alternative: limit to manu with a final decision
+            AND final.final_decision_ind in (1, 4)  -- has a decision accept or reject
             AND final.current_stage_id NOT IN (840, 850)  -- not halted not withdrawn, probably dispensable
         JOIN Person pEditor ON pEditor.p_id = sub.primary_ed_p_id
         -- all of the following gynmastics is to avoid duplicate last names 
@@ -78,7 +73,7 @@ FROM
 
 WHERE
     -- pick the journal of interst or use all of them
-    jou.j_abbrev = 'embomolmed' -- IN ('emboj', 'embor', 'msb', 'embomolmed')  'lsa', 'reviewcommons
+    jou.j_abbrev = 'msb' -- IN ('emboj', 'embor', 'msb', 'embomolmed')  'lsa', 'reviewcommons
     -- include only research articles, reports, methods
     AND
     -- selecting for research papers using the manuscript type of the final (important!) manu

@@ -14,7 +14,6 @@ from .search import EuropePMCEngine, PubMedEngine
 from .ejp import EJPReport
 from .match import match_by_author, match_by_title
 from .net import BioRxivService, ScopusService
-from .decision import normalize_decision
 from .reports import (
     Overview, CitationDistributionViolin, CitationDistributionHisto,
     TimeToPublish,
@@ -192,14 +191,12 @@ class Scanner:
             analysis = Analysis(results)
             dest_path = Path(RESULTS) / f"{self.dest_basename}-{name}-{timestamp}.xlsx"  # change this to Path(RESULTS) / f"{dest_basename}-{name}-{timestamp}.xlsx"
             df = pd.DataFrame(analysis)
-            normalize_decision(df)
             df = df.sort_values(by='citations', ascending=False)
             df = df[analysis[0].cols]  # order the columns
             with pd.ExcelWriter(dest_path) as writer:
                 try:
                     df.to_excel(writer, encoding='utf-8')
                 except Exception as e:
-                    import pdb; pdb.set_trace()
                     logger.error(f"error ({e}) when exporting {name} to Excel file {dest_path}")
             logger.info(f"results {name} saved to {dest_path}")
         else:

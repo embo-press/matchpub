@@ -50,7 +50,7 @@ ejp_query_tool_matchpub_report = {
         "manuscript_nm": 0,
         "editor": 1,
         "sub_date": 2,
-        "decision": 3,
+        "journal_decision": 3,
         "title": 4,
         "authors": 5,
         "abstract": 6,
@@ -60,7 +60,7 @@ ejp_query_tool_matchpub_report = {
     },
     #  regex should be designed to be used with re.match() to detect header line of data table
     "header_signature": [
-        r"manuscript_nm", r"editor", r"sub_date", r"decision", r"title",
+        r"manuscript_nm", r"editor", r"sub_date", r"journal_decision", r"title",
         r"authors", r"abstract",
         r"avg_time_to_secure_rev", r"min_time_to_secure_rev", r"referee_number"
     ],

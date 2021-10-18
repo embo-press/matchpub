@@ -7,6 +7,7 @@ import re
 from lxml.etree import Element
 import pandas as pd
 
+from .decision import normalize_decision
 from .utils import process_authors, last_name, normalize, normalize_date
 
 
@@ -34,7 +35,7 @@ class Submission(Paper):
     Includes editorial information in addition to fields inherited from Paper.
 
     Args:
-        row (pd.Series): the pandas row parsed form the eJP report row.
+        row (pd.Series): the pandas row parsed from the eJP report row.
 
     Fields:
         title (str): the title.
@@ -51,6 +52,7 @@ class Submission(Paper):
     """
     manuscript_nm: str = field(default='')
     editor: str = field(default='')
+    journal_decision: str = field(default='')
     decision: str = field(default='')
     sub_date: str = field(default='')
     min_time_to_secure_rev: int = field(default=None)
@@ -62,7 +64,8 @@ class Submission(Paper):
     def __post_init__(self, row: pd.Series):
         self.manuscript_nm: str = row['manuscript_nm']
         self.editor: str = row.get('editor', 'editor name not available')
-        self.decision: str = row['decision']  # which decision row?
+        self.journal_decision: str = row['journal_decision']
+        self.decision: str = normalize_decision(self.journal_decision)
         self.sub_date: str = normalize_date(str(row['sub_date']))  # normalize date to ISO format with date only
         self.min_time_to_secure_rev = row.get('min_time_to_secure_rev', 0)
         self.avg_time_to_secure_rev = row.get('avg_time_to_secure_rev', 0)
@@ -301,6 +304,7 @@ class Analysis(UserList):
             ('submission.manuscript_nm', 'manuscript_nm'),
             ('submission.sub_date', 'sub_date'),
             ('submission.editor', 'editor'),
+            ('submission.journal_decision', 'journal_decision'),
             ('submission.decision', 'decision'),
             ('article.journal_abbr', 'journal'),
             ('article.citations', 'citations'),
