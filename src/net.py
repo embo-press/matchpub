@@ -69,7 +69,7 @@ class EuropePMCService(Service):
             'format': 'xml',
             'pageSize': limit,
         }
-        response = self.retry_request.post(self.REST_URL, data=params, headers=self.HEADERS)  # EuropePMC accepts only POST
+        response = self.retry_request.post(self.REST_URL, data=params, headers=self.HEADERS, timeout=30)  # EuropePMC accepts only POST
         if response.status_code == 200:
             try:
                 xml = fromstring(response.content)
