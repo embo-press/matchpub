@@ -1,6 +1,6 @@
 from pathlib import Path
 from argparse import ArgumentParser
-from typing import List
+from typing import List, Match
 
 import pandas as pd
 import plotly.express as px
@@ -15,7 +15,7 @@ from . import logger, REPORTS
 
 
 class MatchPubReport:
-    def __init__(self, found: pd.DataFrame, not_found: pd.DataFrame, dest_path: str, report_dir: str = REPORTS, name: str = 'generic', save_to_disk: bool = True):
+    def __init__(self, found: pd.DataFrame, not_found: pd.DataFrame, dest_path: str, report_dir: str = REPORTS, name: str = 'generic'):
         if found is not None:
             self.found = found.copy()
             self.found['count'] = 1  # adding a column to count
@@ -83,7 +83,7 @@ class Overview(MatchPubReport):
         fig.add_annotation(
             text=f"{len(self.found)} articles found from {len(overview)} total submissions",
             xref="paper", yref="paper", xanchor='left', yanchor='top',
-            x=0, y=0,
+            x=0.3, y=0.8,
             showarrow=False,
         )
         fig.update_layout(
@@ -93,10 +93,25 @@ class Overview(MatchPubReport):
         return fig
 
 
-class CitationDistributionViolin(MatchPubReport):
+class CitationDistribution(MatchPubReport):
+    def __init__(self, found, *args, enrichment_threshold=10, depletion_threshold=1, **kwargs):
+        super().__init__(found, None, *args, **kwargs)
+        self.enrichment_threshold = enrichment_threshold
+        self.depletion_threshold = depletion_threshold
+        self.N_tot = len(found)
+        self.N_accept = len(found[found['decision'] == 'accepted'])
+        self.tot_below_depletion_threshold = len(found[found['citations'] <= depletion_threshold])
+        self.accept_below_depletion_threshold = len(found[(found['citations'] <= depletion_threshold) & (found['decision'] == 'accepted')])
+        self.depletion_factor = (self.tot_below_depletion_threshold / self.N_tot) / (self.accept_below_depletion_threshold / self.N_accept)
+        self.tot_above_enrichment_threshold = len(found[found['citations'] >= enrichment_threshold])
+        self.accept_above_enrichment_threshold = len(found[(found['citations'] >= enrichment_threshold) & (found['decision'] == 'accepted')])
+        self.enrichment_factor = (self.accept_above_enrichment_threshold / self.N_accept) / (self.tot_above_enrichment_threshold / self.N_tot)
+
+
+class CitationDistributionViolin(CitationDistribution):
 
     def __init__(self, found, *args, **kwargs):
-        super().__init__(found, None, *args, **kwargs, name='citation_distribution_violin')
+        super().__init__(found, *args, name='citation_distribution_violin', **kwargs)
 
     def generate_report(self) -> Figure:
         fig = px.violin(
@@ -123,7 +138,7 @@ class CitationDistributionViolin(MatchPubReport):
         fig.update_traces(
             marker={
                 "opacity": 0.4,
-                "size":5,
+                "size": 5,
                 "symbol": 'circle-open'  # https://plotly.com/python/marker-style/#custom-marker-symbols
             },
             jitter=0.6,
@@ -131,13 +146,25 @@ class CitationDistributionViolin(MatchPubReport):
         fig.update_layout(
             height=800
         )
+        fig.add_annotation(
+            text=f"Enrichment Factor(≥{self.enrichment_threshold}): {self.enrichment_factor:.1f}",
+            xref="paper", yref="paper", xanchor='left', yanchor='top',
+            x=0.1, y=0.9,
+            showarrow=False,
+        )
+        fig.add_annotation(
+            text=f"Depletion Factor(≤{self.depletion_threshold}): {self.depletion_factor:.1f}",
+            xref="paper", yref="paper", xanchor='left', yanchor='top',
+            x=0.1, y=0.85,
+            showarrow=False,
+        )
         return fig
 
 
-class CitationDistributionHisto(MatchPubReport):
+class CitationDistributionHisto(CitationDistribution):
 
     def __init__(self, found, *args, **kwargs):
-        super().__init__(found, None, *args, **kwargs, name='citation_distribution_histo_with_rug')
+        super().__init__(found, *args, **kwargs, name='citation_distribution_histo_with_rug')
 
     def generate_report(self) -> Figure:
         fig = px.histogram(
