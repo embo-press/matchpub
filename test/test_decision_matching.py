@@ -22,6 +22,7 @@ class TestDecisionMatching(unittest.TestCase):
                 "RC - Reject with EBA",
                 "RC - Reject and Refer",
                 "Reject Before Review Editorial Board Advice",
+                "EDREJECT",  # LSA!
             ],
             "rejected after review": [
                 "reject after review",
@@ -33,6 +34,8 @@ class TestDecisionMatching(unittest.TestCase):
                 "Rejection",
                 "Reject post-review",
                 "Reject and encourage resubmission",
+                "Reject Open",  # LSA!
+                "Reject after Re-review",  # LSA!
             ]
         }
 

@@ -19,12 +19,13 @@ decision_matching_regex = {}
 # RC - Reject with EBA
 # RC - Reject and Refer
 # Reject Before Review Editorial Board Advice
+# EDREJECT
 decision_matching_regex['rejected before review'] = re.compile(
     r"""
     (reject(ed)?\ before)|
     (reject(ed)?\ and\ refer)|
     (reject(ed)?\ with)|
-    (editorial\ reject)
+    (ed\w*\ ?rej)
     """,
     re.IGNORECASE | re.VERBOSE
 )
@@ -40,14 +41,16 @@ decision_matching_regex['rejected before review'] = re.compile(
 # Rejection
 # Reject post-review
 # Reject and encourage resubmission
-
+# Reject Open  # LSA!
+# Reject after Re-review  # LSA!
 decision_matching_regex['rejected after review'] = re.compile(
     r"""
     (reject(ed)?\ post)|
     (reject(ed)?\ after)|
     (^reject(ion|ed)?$)|
-    (border\ line\ reject) |
-    (reject(ed)?\ and\ encourage)
+    (border\ line\ reject)|
+    (reject(ed)?\ and\ encourage)|
+    (reject\ open)
     """,
     re.IGNORECASE | re.VERBOSE
 )
