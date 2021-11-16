@@ -17,7 +17,7 @@ from .net import BioRxivService, ScopusService
 from .reports import (
     Overview, CitationDistributionViolin, CitationDistributionHisto,
     TimeToPublish,
-    JournalDistributionPie, JournalDistributionTreeMap,
+    JournalDistributionPie, JournalDistributionTreeMap, JournalDistributionPinged,
     SyntheticJournal,
     PreprintOverview, UnlinkedPreprints,
 )
@@ -220,6 +220,7 @@ class Scanner:
             TimeToPublish(found, self.dest_basename),
             JournalDistributionPie(found, self.dest_basename),
             JournalDistributionTreeMap(found, self.dest_basename),
+            JournalDistributionPinged(found, self.dest_basename),
             SyntheticJournal(found, self.dest_basename),
         ]
         if self.include_citations:

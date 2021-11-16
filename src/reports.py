@@ -270,6 +270,38 @@ class JournalDistributionTreeMap(JournalDistributionAllRejects):
         return fig
 
 
+class JournalDistributionPinged(JournalDistributionAllRejects):
+    def __init__(self, found, *args, **kwargs):
+        super().__init__(found, *args, **kwargs, name='journal_distribution_pinged')
+        self.pinged = self.all_rejects[self.all_rejects['ping_response'] != '']
+
+    def generate_report(self) -> Figure:
+        fig = None
+        if len(self.pinged) > 0:
+            fig = px.treemap(
+                self.pinged,
+                path=['journal'],
+                values='count',
+                color='journal',
+                color_discrete_sequence=px.colors.qualitative.Antique,
+            )
+            fig.update_traces(
+                marker=dict(
+                    line=dict(
+                        width=1,
+                        color='White'
+                    )
+                )
+            )
+            fig.update_layout(
+                title='Fate of rejected manuscripts offered for transfer.',
+                title_font_size=14,
+            )
+        else:
+            logger.info(f"no tree map for pinged rejects (len {len(self.all_rejects)})")
+        return fig
+
+
 class SyntheticJournal(JournalDistributionAllRejects):
 
     def __init__(self, *args, n_top: int = 3, selected: List = [], **kwargs):
@@ -462,6 +494,7 @@ if __name__ == "__main__":
         if config.include_citations:
             CitationDistributionViolin(found, input_path).run()
             CitationDistributionHisto(found, input_path).run()
+            JournalDistributionPinged(found, input_path).run()
             SyntheticJournal(found, input_path).run()
         if config.preprint_inclusion in [PreprintInclusion.WITH_PREPRINT, PreprintInclusion.ONLY_PREPRINT]:
             PreprintOverview(found, input_path).run()

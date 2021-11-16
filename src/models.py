@@ -49,6 +49,7 @@ class Submission(Paper):
         min_time_to_secure_rev (int): time to secure first reviewers in days.
         avg_time_to_secure_rev (float): average time to secure all reviewers.
         referee_number (int): number of referees who returned a report.
+        ping_reply (str): the reply to an offer(or 'ping') to transfer the manuscript to another journal
     """
     manuscript_nm: str = field(default='')
     editor: str = field(default='')
@@ -58,6 +59,7 @@ class Submission(Paper):
     min_time_to_secure_rev: int = field(default=None)
     avg_time_to_secure_rev: float = field(default=None)
     referee_number: int = field(default=None)
+    ping_response: str = field(default='')
 
     row: InitVar[pd.Series] = None
 
@@ -70,6 +72,7 @@ class Submission(Paper):
         self.min_time_to_secure_rev = row.get('min_time_to_secure_rev', 0)
         self.avg_time_to_secure_rev = row.get('avg_time_to_secure_rev', 0)
         self.referee_number = row.get('referee_number', 0)
+        self.ping_response = row.get('ping_response', '')
         self.title: str = normalize(row['title'], do=['ctrl'])  # remove control characters that are invariably toxic
         self.abstract: str = normalize(row.get('abstract', 'abstract not available'))  # rare illegal character can block pd.ExcelWriter
         self.author_list: List[str] = self.split_author_list(row['authors'])
@@ -323,6 +326,7 @@ class Analysis(UserList):
             ('submission.min_time_to_secure_rev', 'min_time_to_secure_rev'),
             ('submission.avg_time_to_secure_rev', 'avg_time_to_secure_rev'),
             ('submission.referee_number', 'referee_number'),
+            ('submission.ping_response', 'ping_response'),
             ('article.pub_type', 'publication_type'),
             ('article.preprint_published_doi', 'preprint_published_doi'),
             ('article.is_preprint', 'is_preprint')

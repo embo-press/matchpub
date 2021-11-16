@@ -6,12 +6,13 @@ SELECT DISTINCT
     pEditor.last_nm AS editor,
     sub.qc_complete_dt AS sub_date,
     final.journal_decision_txt AS journal_decision, -- this will allow filtering and aggreg by regex
-    CAST(final.ms_title AS NVARCHAR(4000)) AS title,
+    CAST(final.ms_title AS NVARCHAR(4000)) AS title,  -- CAST necessary for DISTINCT to work since text is not a comparable type
     author_list.last_names AS authors,
     CAST(final.abstract AS NVARCHAR(4000)) AS abstract,
     review_data.avg_time_to_secure_rev AS avg_time_to_secure_rev,
     review_data.min_time_to_secure_rev AS min_time_to_secure_rev,
-    review_data.referee_number AS referee_number
+    review_data.referee_number AS referee_number,
+    CAST(ping.note AS NVARCHAR(4000)) AS ping_response
 
 FROM
     Journal jou
@@ -51,8 +52,8 @@ FROM
                         AND author.ms_id = ms.ms_id
                 ) authors
             GROUP BY
-            authors.ms_id,
-            authors.j_id
+              authors.ms_id,
+              authors.j_id
         ) author_list ON author_list.ms_id = sub.ms_id AND author_list.j_id = jou.j_id
         -- aggregate data on review per manuscript when available (hence LEFT JOIN)
         LEFT JOIN (
@@ -70,6 +71,11 @@ FROM
             GROUP BY
                 ms.j_id, ms.ms_id
         ) review_data ON review_data.j_id = jou.j_id AND review_data.ms_id = sub.ms_id
+        LEFT JOIN Notes ping ON
+            ping.j_id = sub.j_id 
+            AND ping.ms_id = sub.ms_id 
+            -- AND ping.ms_rev_no = sub.ms_rev_no 
+            AND ping.note_type_ind = 991  -- shared_view_consultation_comment received in response to a proposed transfer ping to LSA
 
 WHERE
     -- pick the journal of interst or use all of them

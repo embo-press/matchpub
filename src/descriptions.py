@@ -46,7 +46,7 @@ ejp_query_tool_matchpub_report = {
     # names given to metadata info provided in first lines
     "metadata_keys": [],
     "feature_index": {
-        # these fields are all mendatory
+        # these fields are all mandatory
         "manuscript_nm": 0,
         "editor": 1,
         "sub_date": 2,
@@ -56,13 +56,15 @@ ejp_query_tool_matchpub_report = {
         "abstract": 6,
         "avg_time_to_secure_rev": 7,
         "min_time_to_secure_rev": 8,
-        "referee_number": 9
+        "referee_number": 9,
+        "ping_response": 10,
     },
     #  regex should be designed to be used with re.match() to detect header line of data table
     "header_signature": [
         r"manuscript_nm", r"editor", r"sub_date", r"journal_decision", r"title",
         r"authors", r"abstract",
-        r"avg_time_to_secure_rev", r"min_time_to_secure_rev", r"referee_number"
+        r"avg_time_to_secure_rev", r"min_time_to_secure_rev", r"referee_number",
+        r"ping_response",
     ],
     # regex to filter rows to include only decisions to be considered
     "decisions_considered":
